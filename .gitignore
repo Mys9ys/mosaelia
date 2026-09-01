@@ -1,0 +1,11 @@
+dist/
+node_modules/
+*.zip
+.vk-deploy*
+.DS_Store
+Thumbs.db
+stats/config.php
+stats/data/*.jsonl
+stats/data/*.json
+.env
+.env.*

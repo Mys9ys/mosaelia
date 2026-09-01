@@ -1,0 +1,23 @@
+# Beget / mosaelia.ru — copy this file to the site root as .htaccess
+# Do not put this on mosaelia.loc (it would force HTTPS on local HTTP).
+
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always unset X-Frame-Options
+    Header unset X-Frame-Options
+    Header always set Content-Security-Policy "frame-ancestors 'self' https://vk.com https://*.vk.com https://m.vk.com https://vk.ru https://*.vk.ru"
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType text/css .css
+</IfModule>

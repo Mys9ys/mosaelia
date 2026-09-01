@@ -1,0 +1,13 @@
+{
+  "name": "mosaelia",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pack": "powershell -File tools/pack.ps1",
+    "shots": "node tools/screenshots.mjs",
+    "stats": "D:\\OSPanel\\modules\\PHP-8.2\\php.exe -S 127.0.0.1:8791 -t stats stats/router.php"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

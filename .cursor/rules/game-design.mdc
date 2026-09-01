@@ -1,0 +1,39 @@
+---
+description: Mosaelia game concept, tone, and product decisions
+alwaysApply: true
+---
+
+# Mosaelia
+
+Hybridcasual mosaic puzzle. Working title is **Mosaelia** (Мозаэлия). Local site: `http://mosaelia.loc`. Domain `mosaelia.com` was free when checked (Sep 2026).
+
+## Core loop
+
+Player draws / places glossy colored tiles into stacks. Three matching tiles merge into a higher piece. Finished pieces fill a framed mosaic. Session is 1–2 minutes. Completing a mosaic grants coins, stars, and a gallery hanging.
+
+## Screens
+
+1. Play: lives, coins, level, mosaic frame, tile stacks, draw deck, boosters (shuffle / undo / extra slot).
+2. Win: completed artwork, 3 stars, claim reward.
+3. Meta: cozy gallery rooms. Locked frames pull the player back.
+
+## Tone
+
+Travel Town / Homescapes cozy: cream, peach, gold wood frames, glossy candy tiles. Not neon hypercasual. Not a Gossip Harbor clone.
+
+## Release
+
+Ship v1 to **Yandex Games** and **VK Games (Mini Apps)**. One HTML5 core, two adapters (YaGames SDK / VK Bridge). Primary language: Russian.
+
+Store builds need: main menu, 15–20 levels (>10 min), guest saves, interstitial after a mosaic, optional rewarded video for extra boosters. No cross-links between stores.
+
+## Do not
+
+- Do not build a Candy Crush match-3 board.
+- Do not use the discarded names Mosaic Cove, Mosaic Harbor, Tesseria, Mosaicrown, Tilegnum.
+- Keep the first **local** prototype to one playable field + mosaic reveal. Map, IAP, and ads stay out of mosaelia.loc until the loop is fun.
+- Do not call Yandex or VK SDKs from core gameplay; go through a platform adapter.
+- Do not force login. Do not add lives/energy without auto-regen.
+- Do not build a custom registration form (email/password/phone). Guest first; Yandex ID / VK identity only through the platform SDK.
+- Do not put mosaelia.com, the other store, or third-party social links inside a store build.
+- Do not show ads on first launch or during onboarding; pause gameplay and audio while an ad is open.

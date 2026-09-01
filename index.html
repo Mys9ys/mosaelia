@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#f6efe4">
+    <title>Мозаэлия</title>
+    <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+    <div id="app">
+        <section class="screen active" id="screen-menu" aria-label="Главное меню">
+            <div class="menu-hero">
+                <div class="mark" id="dev-mark">Королевство мозаик</div>
+                <h1>Мозаэлия</h1>
+                <p class="menu-lead">Собирай плитки, проявляй картины, обживай мастерские.</p>
+                <div class="menu-progress">
+                    <span id="menu-progress">Картины 0 / 18</span>
+                    <span class="coins" title="Монеты">
+                        <span class="coin-dot"></span>
+                        <span id="menu-coins">0</span>
+                    </span>
+                </div>
+                <p class="platform-chip" id="platform-chip" hidden></p>
+            </div>
+            <div class="menu-actions">
+                <button class="primary" id="play-btn" type="button">Играть</button>
+                <button class="secondary" id="howto-btn" type="button">Как играть</button>
+                <button class="secondary" id="gallery-btn" type="button">Галерея</button>
+                <div class="dev-panel" id="dev-panel" hidden>
+                    <p class="dev-label">Режим мастера</p>
+                    <p class="dev-meta" id="dev-platform"></p>
+                    <button class="secondary" id="dev-reset" type="button">Сбросить прогресс</button>
+                    <button class="ghost-btn" id="dev-off" type="button">Выключить мастер</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="screen" id="screen-howto" aria-label="Как играть">
+            <header class="hud">
+                <button class="icon-btn" id="howto-back" type="button" aria-label="В меню">⌂</button>
+                <div class="titles">
+                    <div class="brand">Как играть</div>
+                    <div class="level-name">Три шага</div>
+                </div>
+                <span class="hud-spacer"></span>
+            </header>
+            <ol class="howto">
+                <li>
+                    <span class="howto-n">1</span>
+                    <div>
+                        <strong>Возьми плитку</strong>
+                        <p>Нажми на колоду — плитка окажется в руке.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="howto-n">2</span>
+                    <div>
+                        <strong>Выложи на стопку</strong>
+                        <p>Положи её на стопку, в том числе на пунктирное место.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="howto-n">3</span>
+                    <div>
+                        <strong>Собери три сверху</strong>
+                        <p>Три одинаковых на вершине стопки улетают в рамку и проявляют картину.</p>
+                    </div>
+                </li>
+            </ol>
+            <button class="primary" id="howto-play" type="button">Понятно, играть</button>
+        </section>
+
+        <section class="screen" id="screen-gallery" aria-label="Галерея">
+            <header class="hud">
+                <button class="icon-btn" id="gallery-back" type="button" aria-label="В меню">⌂</button>
+                <div class="titles">
+                    <div class="brand">Галерея</div>
+                    <div class="level-name">Собранные картины</div>
+                </div>
+                <span class="hud-spacer"></span>
+            </header>
+            <div class="gallery-grid" id="gallery-grid"></div>
+        </section>
+
+        <section class="screen" id="screen-play" aria-label="Игра">
+            <header class="hud">
+                <button class="icon-btn" id="menu-btn" type="button" aria-label="В меню">⌂</button>
+                <div class="titles">
+                    <div class="brand">Мозаэлия</div>
+                    <div class="level-name" id="level-name">Картина 1</div>
+                </div>
+                <div class="hud-end">
+                    <button class="icon-btn" id="mute" type="button" aria-label="Звук">🔊</button>
+                    <div class="coins" title="Монеты">
+                        <span class="coin-dot"></span>
+                        <span id="coins">0</span>
+                    </div>
+                </div>
+            </header>
+
+            <p class="hint" id="hint">Выложи плитки на стопки. Три одинаковых сверху — в рамку</p>
+
+            <div class="stage">
+                <div class="frame-wrap">
+                    <div class="frame" id="frame">
+                        <div class="frame-inner">
+                            <div class="mosaic" id="mosaic"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="board">
+                    <div class="stacks" id="stacks"></div>
+                    <div class="draw-row">
+                        <button class="hand" id="hand" type="button" aria-label="Плитка в руке"></button>
+                        <button class="deck" id="deck" type="button" aria-label="Взять плитку из колоды">
+                            <span class="deck-card"></span>
+                            <span class="deck-card"></span>
+                            <span class="deck-card"></span>
+                            <span class="deck-count" id="deck-count">0</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="boosters">
+                <button class="booster" id="shuffle" type="button">
+                    <span class="booster-face">🔀<span class="uses" id="shuffle-uses">3</span></span>
+                    Перемешать
+                </button>
+                <button class="booster" id="undo" type="button">
+                    <span class="booster-face">↩<span class="uses" id="undo-uses">5</span></span>
+                    Отмена
+                </button>
+                <button class="booster" id="extra" type="button">
+                    <span class="booster-face">＋</span>
+                    Слот
+                </button>
+            </footer>
+
+            <div class="overlay" id="overlay">
+                <div class="sheet">
+                    <div class="stars" aria-hidden="true">★★★</div>
+                    <h2 id="win-title">Картина готова!</h2>
+                    <p id="win-copy">Мозаика собрана и повешена в галерею.</p>
+                    <p class="reward" id="reward">+50 монет</p>
+                    <button class="primary" id="claim" type="button">Забрать награду</button>
+                    <button class="ghost-btn" id="retry" type="button">Ещё раз эту картину</button>
+                    <button class="ghost-btn" id="win-menu" type="button">В меню</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="toast" id="toast"></div>
+    </div>
+    <div class="overlay ad-overlay" id="ad-overlay">
+        <div class="sheet ad-sheet">
+            <p class="ad-kicker">Реклама</p>
+            <h2 id="ad-title">Пауза</h2>
+            <p id="ad-copy">Заглушка для проверки. На Яндексе и VK здесь будет ролик площадки.</p>
+            <div class="ad-bar"><span class="ad-bar-fill" id="ad-bar"></span></div>
+        </div>
+    </div>
+    <div class="fx" id="fx"></div>
+    <script type="module" src="js/game.js"></script>
+</body>
+</html>
