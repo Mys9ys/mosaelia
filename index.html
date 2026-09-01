@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#f6efe4">
     <title>Мозаэлия</title>
-    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/game.css?v=3">
 </head>
 <body>
     <div id="app">
@@ -40,7 +40,7 @@
         <section class="screen" id="screen-howto" aria-label="Как играть">
             <header class="hud">
                 <button class="icon-btn" id="howto-back" type="button" aria-label="В меню">⌂</button>
-                <div class="titles">
+                <div class="titles titles-pill">
                     <div class="brand">Как играть</div>
                     <div class="level-name">Три шага</div>
                 </div>
@@ -57,15 +57,15 @@
                 <li>
                     <span class="howto-n">2</span>
                     <div>
-                        <strong>Выложи на стопку</strong>
-                        <p>Положи её на стопку, в том числе на пунктирное место.</p>
+                        <strong>Выложи в канавку</strong>
+                        <p>Положи её в одну из пяти канавок — можно и в пустую.</p>
                     </div>
                 </li>
                 <li>
                     <span class="howto-n">3</span>
                     <div>
                         <strong>Собери три сверху</strong>
-                        <p>Три одинаковых на вершине стопки улетают в рамку и проявляют картину.</p>
+                        <p>Три одинаковых на вершине канавки улетают в рамку и проявляют картину.</p>
                     </div>
                 </li>
             </ol>
@@ -75,7 +75,7 @@
         <section class="screen" id="screen-gallery" aria-label="Галерея">
             <header class="hud">
                 <button class="icon-btn" id="gallery-back" type="button" aria-label="В меню">⌂</button>
-                <div class="titles">
+                <div class="titles titles-pill">
                     <div class="brand">Галерея</div>
                     <div class="level-name">Собранные картины</div>
                 </div>
@@ -87,7 +87,7 @@
         <section class="screen" id="screen-play" aria-label="Игра">
             <header class="hud">
                 <button class="icon-btn" id="menu-btn" type="button" aria-label="В меню">⌂</button>
-                <div class="titles">
+                <div class="titles titles-pill">
                     <div class="brand">Мозаэлия</div>
                     <div class="level-name" id="level-name">Картина 1</div>
                 </div>
@@ -100,11 +100,15 @@
                 </div>
             </header>
 
-            <p class="hint" id="hint">Выложи плитки на стопки. Три одинаковых сверху — в рамку</p>
+            <p class="hint" id="hint">Выложи плитки в канавки. Три одинаковых сверху — в рамку</p>
 
             <div class="stage">
                 <div class="frame-wrap">
                     <div class="frame" id="frame">
+                        <i class="filigree tl" aria-hidden="true"></i>
+                        <i class="filigree tr" aria-hidden="true"></i>
+                        <i class="filigree bl" aria-hidden="true"></i>
+                        <i class="filigree br" aria-hidden="true"></i>
                         <div class="frame-inner">
                             <div class="mosaic" id="mosaic"></div>
                         </div>
@@ -126,26 +130,37 @@
             </div>
 
             <footer class="boosters">
-                <button class="booster" id="shuffle" type="button">
+                <button class="booster booster-shuffle" id="shuffle" type="button">
                     <span class="booster-face">🔀<span class="uses" id="shuffle-uses">3</span></span>
                     Перемешать
                 </button>
-                <button class="booster" id="undo" type="button">
+                <button class="booster booster-undo" id="undo" type="button">
                     <span class="booster-face">↩<span class="uses" id="undo-uses">5</span></span>
                     Отмена
                 </button>
-                <button class="booster" id="extra" type="button">
+                <button class="booster booster-wand" id="wand" type="button">
+                    <span class="booster-face">✦<span class="uses" id="wand-uses">2</span></span>
+                    Палочка
+                </button>
+                <button class="booster booster-extra" id="extra" type="button">
                     <span class="booster-face">＋</span>
                     Слот
                 </button>
             </footer>
 
             <div class="overlay" id="overlay">
+                <div class="win-rays" aria-hidden="true"></div>
+                <div class="confetti" aria-hidden="true">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                </div>
                 <div class="sheet">
-                    <div class="stars" aria-hidden="true">★★★</div>
+                    <div class="stars" aria-hidden="true"><span>★</span><span>★</span><span>★</span></div>
                     <h2 id="win-title">Картина готова!</h2>
                     <p id="win-copy">Мозаика собрана и повешена в галерею.</p>
-                    <p class="reward" id="reward">+50 монет</p>
+                    <div class="win-rewards">
+                        <div class="win-chip">🖼 +1 в галерею</div>
+                        <div class="win-chip" id="reward">+50 монет</div>
+                    </div>
                     <button class="primary" id="claim" type="button">Забрать награду</button>
                     <button class="ghost-btn" id="retry" type="button">Ещё раз эту картину</button>
                     <button class="ghost-btn" id="win-menu" type="button">В меню</button>
@@ -164,6 +179,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js"></script>
+    <script type="module" src="js/game.js?v=3"></script>
 </body>
 </html>

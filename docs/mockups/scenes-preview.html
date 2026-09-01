@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Mosaelia — сцены</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #f3e6d4;
+            font-family: Georgia, serif;
+            color: #3a2a22;
+        }
+        h1 { font-size: 22px; margin: 0 0 16px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            background: #fffaf3;
+            padding: 12px;
+            border-radius: 14px;
+            box-shadow: 0 8px 16px rgba(90, 50, 20, 0.12);
+        }
+        .frame {
+            background: linear-gradient(145deg, #f0d39a, #a07840);
+            padding: 8px;
+            border-radius: 10px;
+        }
+        .m {
+            display: grid;
+            gap: 2px;
+            background: #3a2a22;
+            padding: 3px;
+            aspect-ratio: var(--cols) / var(--rows);
+            grid-template-columns: repeat(var(--cols), 1fr);
+            grid-template-rows: repeat(var(--rows), 1fr);
+        }
+        .c {
+            min-width: 0;
+            min-height: 0;
+            border-radius: 3px;
+            background: linear-gradient(180deg, var(--c), var(--d));
+        }
+        .c.wide { border-radius: 6px; }
+        .c.pebble { border-radius: 50%; }
+        h3 { font-size: 14px; margin: 10px 0 0; text-align: center; font-weight: 600; }
+        .meta { font-size: 11px; color: #7a5a3a; font-family: system-ui, sans-serif; }
+    </style>
+</head>
+<body>
+    <h1>Картины Мозаэлии</h1>
+    <div class="grid" id="grid"></div>
+    <script type="module">
+        import { COLORS, LEVELS, tilesFor } from "../../js/levels.js";
+        const root = document.getElementById("grid");
+        for (const level of LEVELS) {
+            const missing = [...new Set(level.pieces.map((p) => p.color))].filter((id) => !COLORS[id]);
+            if (missing.length) throw new Error(`${level.id}: ${missing}`);
+            const card = document.createElement("div");
+            card.className = "card";
+            const frame = document.createElement("div");
+            frame.className = "frame";
+            const m = document.createElement("div");
+            m.className = "m";
+            m.style.setProperty("--cols", String(level.cols));
+            m.style.setProperty("--rows", String(level.rows));
+            for (const p of level.pieces) {
+                const pal = COLORS[p.color];
+                const c = document.createElement("div");
+                c.className = "c";
+                if (p.w > 1) c.classList.add("wide");
+                if (p.color === "goldL" && p.w === 1) c.classList.add("pebble");
+                c.style.gridColumn = `span ${p.w}`;
+                c.style.setProperty("--c", pal.c);
+                c.style.setProperty("--d", pal.d);
+                m.appendChild(c);
+            }
+            frame.appendChild(m);
+            const h = document.createElement("h3");
+            const types = new Set(level.pieces.map((p) => p.color)).size;
+            h.innerHTML = `${level.title}<div class="meta">${level.cols}×${level.rows} · ${level.pieces.length} камней · ${tilesFor(level).length} плиток · ${types} цветов</div>`;
+            card.append(frame, h);
+            root.appendChild(card);
+        }
+    </script>
+</body>
+</html>

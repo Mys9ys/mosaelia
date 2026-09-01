@@ -16,7 +16,8 @@ $gameFiles = @(
     "js\platform\yandex.js",
     "js\platform\vk.js",
     "js\stats.js",
-    "js\stats-config.js"
+    "js\stats-config.js",
+    "img\filigree.svg"
 )
 
 $badName = [regex]"\s|[^\u0000-\u007F]"

@@ -1,12 +1,13 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=3";
 import { createPlatform } from "./platform/index.js";
 import { track } from "./stats.js";
 
-const STACK_COUNT = 4;
+const STACK_COUNT = 5;
 const UNDO_MAX = 5;
 const SHUFFLE_MAX = 3;
+const WAND_MAX = 2;
 const REWARD = 50;
-const HINT = "Выложи плитки на стопки. Три одинаковых сверху — в рамку";
+const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
 const platform = await createPlatform();
 
@@ -43,8 +44,10 @@ const ui = {
     shuffle: $("shuffle"),
     undo: $("undo"),
     extra: $("extra"),
+    wand: $("wand"),
     shuffleUses: $("shuffle-uses"),
     undoUses: $("undo-uses"),
+    wandUses: $("wand-uses"),
     toast: $("toast"),
     fx: $("fx"),
     galleryGrid: $("gallery-grid")
@@ -78,8 +81,9 @@ const state = {
     hand: null,
     shuffles: SHUFFLE_MAX,
     undos: UNDO_MAX,
-        extraUsed: false,
-        extraAdUsed: false,
+    extraUsed: false,
+    extraAdUsed: false,
+    wands: WAND_MAX,
     history: [],
     won: false,
     claimed: false
@@ -151,28 +155,40 @@ function renderGallery() {
         const open = isUnlocked(index);
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = `gallery-card${open ? "" : " locked"}`;
+        btn.className = `gallery-card${open ? "" : " locked"}${done ? " done" : ""}`;
         btn.disabled = !open;
         const frame = document.createElement("div");
         frame.className = "gallery-frame";
         const mosaic = document.createElement("div");
         mosaic.className = "gallery-mosaic";
+        mosaic.style.setProperty("--cols", String(level.cols));
+        mosaic.style.setProperty("--rows", String(level.rows));
         mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
-        level.grid.flat().forEach((color) => {
-            const pal = COLORS[color];
+        mosaic.style.gridTemplateRows = `repeat(${level.rows}, 1fr)`;
+        level.pieces.forEach((p) => {
+            const pal = COLORS[p.color];
             const cell = document.createElement("div");
             cell.className = "gallery-cell";
+            if (p.w > 1) cell.classList.add("wide");
+            if (p.color === "goldL" && p.w === 1) cell.classList.add("pebble");
+            cell.style.gridColumn = `span ${p.w}`;
             cell.style.setProperty("--c", pal.c);
             cell.style.setProperty("--d", pal.d);
             if (!done && open) cell.style.opacity = "0.35";
             mosaic.appendChild(cell);
         });
         frame.appendChild(mosaic);
+        addFiligree(frame);
+        if (!open) {
+            const lock = document.createElement("span");
+            lock.className = "gallery-lock";
+            lock.setAttribute("aria-hidden", "true");
+            lock.textContent = "🔒";
+            frame.appendChild(lock);
+        }
         const title = document.createElement("div");
         title.className = "gallery-title";
-        title.textContent = open
-            ? `${index + 1}. ${level.title}${done || !isDev() ? "" : " · просмотр"}`
-            : "Закрыто";
+        title.textContent = open ? `${index + 1}. ${level.title}` : "Закрыто";
         btn.append(frame, title);
         if (open) {
             btn.addEventListener("click", () => enterPlay(index));
@@ -266,10 +282,16 @@ function startLevel(index) {
     const safe = Math.max(0, Math.min(index, LEVELS.length - 1));
     const level = LEVELS[safe];
     state.levelIndex = safe;
-    state.mosaic = level.grid.flat().map((color) => ({ color, filled: false }));
+    state.mosaic = level.pieces.map((p) => ({
+        color: p.color,
+        w: p.w,
+        h: p.h,
+        filled: false
+    }));
     state.hand = null;
     state.shuffles = SHUFFLE_MAX;
     state.undos = UNDO_MAX;
+    state.wands = WAND_MAX;
     state.extraUsed = false;
     state.extraAdUsed = false;
     state.history = [];
@@ -307,14 +329,29 @@ function tileNode(tile, extraClass = "") {
     return el;
 }
 
+function addFiligree(frame) {
+    ["tl", "tr", "bl", "br"].forEach((pos) => {
+        const mark = document.createElement("i");
+        mark.className = `filigree ${pos}`;
+        mark.setAttribute("aria-hidden", "true");
+        frame.appendChild(mark);
+    });
+}
+
 function renderMosaic() {
     const level = LEVELS[state.levelIndex];
+    ui.mosaic.style.setProperty("--cols", String(level.cols));
+    ui.mosaic.style.setProperty("--rows", String(level.rows));
     ui.mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
+    ui.mosaic.style.gridTemplateRows = `repeat(${level.rows}, 1fr)`;
     ui.mosaic.replaceChildren();
     state.mosaic.forEach((cell, i) => {
         const pal = COLORS[cell.color];
         const el = document.createElement("div");
         el.className = `cell${cell.filled ? " filled" : ""}`;
+        if (cell.w > 1) el.classList.add("wide");
+        if (cell.color === "goldL" && cell.w === 1) el.classList.add("pebble");
+        el.style.gridColumn = `span ${cell.w}`;
         el.style.setProperty("--c", pal.c);
         el.style.setProperty("--d", pal.d);
         el.dataset.i = String(i);
@@ -333,8 +370,8 @@ function renderStacks() {
         btn.setAttribute(
             "aria-label",
             holding
-                ? (pile.length ? "Выложить на стопку" : "Выложить на пустое место")
-                : (pile.length ? "Взять верхнюю плитку" : "Пустая стопка")
+                ? (pile.length ? "Выложить в канавку" : "Выложить в пустую канавку")
+                : (pile.length ? "Взять верхнюю плитку" : "Пустая канавка")
         );
         if (!pile.length) {
             const empty = document.createElement("div");
@@ -358,18 +395,21 @@ function render() {
     ui.levelName.textContent = `Картина ${state.levelIndex + 1} · ${level.title}`;
     ui.coins.textContent = String(save.coins);
     ui.hint.textContent = state.hand
-        ? "Теперь выложи её на стопку — в том числе на пунктир"
+        ? "Теперь выложи её в канавку — в том числе в пустую"
         : HINT;
     ui.deck.classList.toggle("empty", state.deck.length === 0);
     ui.deckCount.textContent = String(state.deck.length);
     ui.deck.disabled = busy || state.won || state.deck.length === 0 || Boolean(state.hand);
     ui.shuffleUses.textContent = state.shuffles > 0 ? String(state.shuffles) : "▶";
     ui.undoUses.textContent = state.undos > 0 ? String(state.undos) : "▶";
+    ui.wandUses.textContent = state.wands > 0 ? String(state.wands) : "▶";
     ui.shuffle.classList.toggle("booster-ad", state.shuffles <= 0);
     ui.undo.classList.toggle("booster-ad", state.undos <= 0);
+    ui.wand.classList.toggle("booster-ad", state.wands <= 0);
     ui.extra.classList.toggle("booster-ad", state.extraUsed && !state.extraAdUsed);
     ui.shuffle.disabled = busy || state.won || paused;
     ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length);
+    ui.wand.disabled = busy || state.won || paused;
     ui.extra.disabled = busy || state.won || paused || (state.extraUsed && state.extraAdUsed);
     ui.mute.textContent = save.mute ? "🔇" : "🔊";
     ui.mute.setAttribute("aria-label", save.mute ? "Включить звук" : "Выключить звук");
@@ -511,7 +551,7 @@ function drawDeck() {
     if (paused || busy || state.won || !state.deck.length) return;
     if (state.hand) {
         shake(ui.hand);
-        toast("Сначала выложи плитку на стопку");
+        toast("Сначала выложи плитку в канавку");
         return;
     }
     pushHistory();
@@ -569,11 +609,97 @@ function doShuffle() {
     toast("Плитки перемешаны");
 }
 
+function pickWandColor() {
+    const counts = {};
+    for (const pile of state.stacks) {
+        for (const tile of pile) {
+            counts[tile.color] = (counts[tile.color] || 0) + 1;
+        }
+    }
+    const ready = Object.keys(counts).filter(
+        (color) =>
+            counts[color] >= 3 && state.mosaic.some((cell) => cell.color === color && !cell.filled)
+    );
+    ready.sort((a, b) => counts[b] - counts[a]);
+    return ready[0] || null;
+}
+
+function takeWandTiles(color) {
+    const taken = [];
+    for (let s = 0; s < state.stacks.length && taken.length < 3; s++) {
+        const pile = state.stacks[s];
+        for (let i = 0; i < pile.length && taken.length < 3; i++) {
+            if (pile[i].color === color) taken.push({ s, i, tile: pile[i] });
+        }
+    }
+    const byStack = new Map();
+    for (const item of taken) {
+        if (!byStack.has(item.s)) byStack.set(item.s, []);
+        byStack.get(item.s).push(item.i);
+    }
+    const removed = [];
+    for (const [s, indexes] of byStack) {
+        indexes.sort((a, b) => b - a);
+        for (const i of indexes) {
+            removed.push({ s, tile: state.stacks[s].splice(i, 1)[0] });
+        }
+    }
+    return removed;
+}
+
+async function doWand() {
+    if (paused || busy || state.won) return;
+    if (state.wands <= 0) {
+        refillWithAd("wands", "Ещё одна палочка");
+        return;
+    }
+    const color = pickWandColor();
+    if (!color) {
+        toast("В канавках нет трёх одинаковых");
+        shake(ui.wand);
+        return;
+    }
+    const picked = [];
+    for (let s = 0; s < state.stacks.length && picked.length < 3; s++) {
+        const pile = state.stacks[s];
+        for (let i = 0; i < pile.length && picked.length < 3; i++) {
+            if (pile[i].color === color) picked.push({ s, i });
+        }
+    }
+    const tileEls = picked
+        .map(({ s, i }) => ui.stacks.querySelector(`[data-i="${s}"]`)?.querySelectorAll(".tile")[i])
+        .filter(Boolean);
+    const target = state.mosaic.findIndex((c) => c.color === color && !c.filled);
+    const cellEl = ui.mosaic.querySelector(`[data-i="${target}"]`);
+    if (target < 0 || !cellEl || tileEls.length < 3) {
+        toast("В канавках нет трёх одинаковых");
+        return;
+    }
+    busy = true;
+    pushHistory();
+    state.wands -= 1;
+    const dest = cellEl.getBoundingClientRect();
+    tileEls.forEach((el) => {
+        el.style.visibility = "hidden";
+    });
+    beep(480, 0.08, "triangle", 0.05);
+    await Promise.all(tileEls.map((el) => flyClone(el, dest, color)));
+    takeWandTiles(color);
+    state.mosaic[target].filled = true;
+    render();
+    ui.mosaic.querySelector(`[data-i="${target}"]`)?.classList.add("pop");
+    beep(620, 0.1, "sine", 0.05);
+    await resolveMerges();
+    checkWin();
+    busy = false;
+    render();
+}
+
 function doExtra() {
     if (paused || busy || state.won) return;
     if (state.extraUsed) {
         if (state.extraAdUsed) return;
-        refillWithAd("extra", "Ещё одна стопка");
+        refillWithAd("extra", "Ещё одна канавка");
         return;
     }
     pushHistory();
@@ -581,7 +707,7 @@ function doExtra() {
     state.stacks.push([]);
     beep(500, 0.08);
     render();
-    toast("Ещё одна стопка");
+    toast("Ещё одна канавка");
 }
 
 async function refillWithAd(kind, okText) {
@@ -597,6 +723,7 @@ async function refillWithAd(kind, okText) {
     }
     if (kind === "shuffles") state.shuffles += 1;
     if (kind === "undos") state.undos += 1;
+    if (kind === "wands") state.wands += 1;
     if (kind === "extra") {
         state.extraAdUsed = true;
         state.stacks.push([]);
@@ -637,10 +764,11 @@ ui.stacks.addEventListener("click", (e) => {
 ui.deck.addEventListener("click", drawDeck);
 ui.hand.addEventListener("click", () => {
     if (!state.hand) drawDeck();
-    else toast("Нажми на стопку или на пунктир, чтобы выложить");
+    else toast("Нажми на канавку, чтобы выложить");
 });
 ui.undo.addEventListener("click", doUndo);
 ui.shuffle.addEventListener("click", doShuffle);
+ui.wand.addEventListener("click", doWand);
 ui.extra.addEventListener("click", doExtra);
 ui.claim.addEventListener("click", claimReward);
 ui.retry.addEventListener("click", () => startLevel(state.levelIndex));
