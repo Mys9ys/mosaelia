@@ -14,7 +14,7 @@
         h1 { font-size: 22px; margin: 0 0 16px; }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 18px;
         }
         .card {
@@ -28,23 +28,12 @@
             padding: 8px;
             border-radius: 10px;
         }
-        .m {
-            display: grid;
-            gap: 2px;
-            background: #3a2a22;
-            padding: 3px;
-            aspect-ratio: var(--cols) / var(--rows);
-            grid-template-columns: repeat(var(--cols), 1fr);
-            grid-template-rows: repeat(var(--rows), 1fr);
+        .art {
+            width: 100%;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            border-radius: 6px;
         }
-        .c {
-            min-width: 0;
-            min-height: 0;
-            border-radius: 3px;
-            background: linear-gradient(180deg, var(--c), var(--d));
-        }
-        .c.wide { border-radius: 6px; }
-        .c.pebble { border-radius: 50%; }
         h3 { font-size: 14px; margin: 10px 0 0; text-align: center; font-weight: 600; }
         .meta { font-size: 11px; color: #7a5a3a; font-family: system-ui, sans-serif; }
     </style>
@@ -53,7 +42,8 @@
     <h1>Картины Мозаэлии</h1>
     <div class="grid" id="grid"></div>
     <script type="module">
-        import { COLORS, LEVELS, tilesFor } from "../../js/levels.js";
+        import { COLORS, LEVELS, tilesFor } from "../../js/levels.js?v=7";
+        import { artBackground } from "../../js/art.js?v=7";
         const root = document.getElementById("grid");
         for (const level of LEVELS) {
             const missing = [...new Set(level.pieces.map((p) => p.color))].filter((id) => !COLORS[id]);
@@ -62,22 +52,11 @@
             card.className = "card";
             const frame = document.createElement("div");
             frame.className = "frame";
-            const m = document.createElement("div");
-            m.className = "m";
-            m.style.setProperty("--cols", String(level.cols));
-            m.style.setProperty("--rows", String(level.rows));
-            for (const p of level.pieces) {
-                const pal = COLORS[p.color];
-                const c = document.createElement("div");
-                c.className = "c";
-                if (p.w > 1) c.classList.add("wide");
-                if (p.color === "goldL" && p.w === 1) c.classList.add("pebble");
-                c.style.gridColumn = `span ${p.w}`;
-                c.style.setProperty("--c", pal.c);
-                c.style.setProperty("--d", pal.d);
-                m.appendChild(c);
-            }
-            frame.appendChild(m);
+            const art = document.createElement("div");
+            art.className = "art";
+            art.style.aspectRatio = `${level.cols} / ${level.rows}`;
+            art.style.backgroundImage = artBackground(level);
+            frame.appendChild(art);
             const h = document.createElement("h3");
             const types = new Set(level.pieces.map((p) => p.color)).size;
             h.innerHTML = `${level.title}<div class="meta">${level.cols}×${level.rows} · ${level.pieces.length} камней · ${tilesFor(level).length} плиток · ${types} цветов</div>`;

@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "docs", "store", "screens");
 const baseUrl = process.env.MOSAELIA_URL || "http://mosaelia.loc/?shot=1";
 
-const scenes = ["menu", "howto", "play", "win", "gallery"];
+const scenes = ["menu", "howto", "play", "win", "gallery", "gallery2"];
 
 const targets = [
     {

@@ -1,8 +1,11 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=3";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=23";
 import { createPlatform } from "./platform/index.js";
 import { track } from "./stats.js";
 
 const STACK_COUNT = 5;
+const STACK_VISIBLE = 6;
+const STACK_PAD_TOP = 8;
+const STACK_PAD_BOT = 10;
 const UNDO_MAX = 5;
 const SHUFFLE_MAX = 3;
 const WAND_MAX = 2;
@@ -44,14 +47,42 @@ const ui = {
     shuffle: $("shuffle"),
     undo: $("undo"),
     extra: $("extra"),
+    extraUses: $("extra-uses"),
     wand: $("wand"),
     shuffleUses: $("shuffle-uses"),
     undoUses: $("undo-uses"),
     wandUses: $("wand-uses"),
     toast: $("toast"),
     fx: $("fx"),
-    galleryGrid: $("gallery-grid")
+    galleryGrid: $("gallery-grid"),
+    gallerySheet: $("gallery-sheet"),
+    galleryPage1: $("gallery-page-1"),
+    galleryPage2: $("gallery-page-2")
 };
+
+const COMING_COUNT = 18;
+let galleryPage = 1;
+let stackFit = { shown: STACK_VISIBLE, peek: 18 };
+
+function readTilePx() {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;width:var(--tile);height:var(--tile)";
+    document.getElementById("app").appendChild(probe);
+    const tile = probe.getBoundingClientRect().width || 40;
+    probe.remove();
+    return tile;
+}
+
+function measureStackFit() {
+    void ui.screens.play.offsetHeight;
+    const h = ui.stacks.getBoundingClientRect().height || parseFloat(getComputedStyle(ui.stacks).height) || 180;
+    if (h < 40) return stackFit;
+    const tile = readTilePx();
+    const inner = Math.max(tile, h - STACK_PAD_TOP - STACK_PAD_BOT);
+    const peek = (inner - tile) / (STACK_VISIBLE - 1);
+    stackFit = { shown: STACK_VISIBLE, peek };
+    return stackFit;
+}
 
 let tileSeq = 1;
 let busy = false;
@@ -148,8 +179,72 @@ function renderMenu() {
     chip.textContent = `Площадка: ${platform.id}`;
 }
 
+function miniMosaic(level, filled) {
+    const mosaic = document.createElement("div");
+    mosaic.className = "gallery-mosaic";
+    mosaic.style.setProperty("--cols", String(level.cols));
+    mosaic.style.setProperty("--rows", String(level.rows));
+    mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
+    mosaic.style.gridTemplateRows = `repeat(${level.rows}, 1fr)`;
+    level.pieces.forEach((p) => {
+        const pal = COLORS[p.color];
+        const cell = document.createElement("div");
+        cell.className = `gallery-cell${filled ? " filled" : ""}`;
+        cell.style.gridColumn = `${p.x + 1} / span ${p.w}`;
+        cell.style.gridRow = `${p.y + 1} / span ${p.h}`;
+        cell.style.setProperty("--c", pal.c);
+        cell.style.setProperty("--d", pal.d);
+        mosaic.appendChild(cell);
+    });
+    return mosaic;
+}
+
+function comingMosaic() {
+    const mosaic = document.createElement("div");
+    mosaic.className = "gallery-mosaic coming";
+    mosaic.style.setProperty("--cols", "5");
+    mosaic.style.setProperty("--rows", "4");
+    mosaic.style.gridTemplateColumns = "repeat(5, 1fr)";
+    mosaic.style.gridTemplateRows = "repeat(4, 1fr)";
+    for (let i = 0; i < 20; i++) {
+        const cell = document.createElement("div");
+        cell.className = "gallery-cell coming-cell";
+        mosaic.appendChild(cell);
+    }
+    return mosaic;
+}
+
 function renderGallery() {
     ui.galleryGrid.replaceChildren();
+    const sheet = $("gallery-sheet");
+    const onFirst = galleryPage === 1;
+    ui.galleryPage1?.classList.toggle("on", onFirst);
+    ui.galleryPage2?.classList.toggle("on", !onFirst);
+    if (sheet) {
+        sheet.textContent = onFirst ? "Мастерская 1" : "В разработке";
+    }
+    if (!onFirst) {
+        for (let i = 0; i < COMING_COUNT; i++) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "gallery-card locked coming";
+            btn.disabled = true;
+            const frame = document.createElement("div");
+            frame.className = "gallery-frame";
+            frame.appendChild(comingMosaic());
+            const lock = document.createElement("span");
+            lock.className = "gallery-lock";
+            lock.setAttribute("aria-hidden", "true");
+            lock.textContent = "🔒";
+            frame.appendChild(lock);
+            const title = document.createElement("div");
+            title.className = "gallery-title";
+            title.textContent = "Скоро";
+            btn.append(frame, title);
+            ui.galleryGrid.appendChild(btn);
+        }
+        return;
+    }
     LEVELS.forEach((level, index) => {
         const done = save.completed.includes(level.id);
         const open = isUnlocked(index);
@@ -159,26 +254,7 @@ function renderGallery() {
         btn.disabled = !open;
         const frame = document.createElement("div");
         frame.className = "gallery-frame";
-        const mosaic = document.createElement("div");
-        mosaic.className = "gallery-mosaic";
-        mosaic.style.setProperty("--cols", String(level.cols));
-        mosaic.style.setProperty("--rows", String(level.rows));
-        mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
-        mosaic.style.gridTemplateRows = `repeat(${level.rows}, 1fr)`;
-        level.pieces.forEach((p) => {
-            const pal = COLORS[p.color];
-            const cell = document.createElement("div");
-            cell.className = "gallery-cell";
-            if (p.w > 1) cell.classList.add("wide");
-            if (p.color === "goldL" && p.w === 1) cell.classList.add("pebble");
-            cell.style.gridColumn = `span ${p.w}`;
-            cell.style.setProperty("--c", pal.c);
-            cell.style.setProperty("--d", pal.d);
-            if (!done && open) cell.style.opacity = "0.35";
-            mosaic.appendChild(cell);
-        });
-        frame.appendChild(mosaic);
-        addFiligree(frame);
+        frame.appendChild(miniMosaic(level, done || isDev()));
         if (!open) {
             const lock = document.createElement("span");
             lock.className = "gallery-lock";
@@ -286,6 +362,9 @@ function startLevel(index) {
         color: p.color,
         w: p.w,
         h: p.h,
+        x: p.x,
+        y: p.y,
+        poly: p.poly,
         filled: false
     }));
     state.hand = null;
@@ -329,29 +408,20 @@ function tileNode(tile, extraClass = "") {
     return el;
 }
 
-function addFiligree(frame) {
-    ["tl", "tr", "bl", "br"].forEach((pos) => {
-        const mark = document.createElement("i");
-        mark.className = `filigree ${pos}`;
-        mark.setAttribute("aria-hidden", "true");
-        frame.appendChild(mark);
-    });
-}
-
 function renderMosaic() {
     const level = LEVELS[state.levelIndex];
     ui.mosaic.style.setProperty("--cols", String(level.cols));
     ui.mosaic.style.setProperty("--rows", String(level.rows));
     ui.mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
     ui.mosaic.style.gridTemplateRows = `repeat(${level.rows}, 1fr)`;
+    ui.mosaic.style.backgroundImage = "none";
     ui.mosaic.replaceChildren();
     state.mosaic.forEach((cell, i) => {
         const pal = COLORS[cell.color];
         const el = document.createElement("div");
         el.className = `cell${cell.filled ? " filled" : ""}`;
-        if (cell.w > 1) el.classList.add("wide");
-        if (cell.color === "goldL" && cell.w === 1) el.classList.add("pebble");
-        el.style.gridColumn = `span ${cell.w}`;
+        el.style.gridColumn = `${cell.x + 1} / span ${cell.w}`;
+        el.style.gridRow = `${cell.y + 1} / span ${cell.h}`;
         el.style.setProperty("--c", pal.c);
         el.style.setProperty("--d", pal.d);
         el.dataset.i = String(i);
@@ -360,6 +430,7 @@ function renderMosaic() {
 }
 
 function renderStacks() {
+    const { shown, peek } = measureStackFit();
     ui.stacks.replaceChildren();
     const holding = Boolean(state.hand);
     state.stacks.forEach((pile, i) => {
@@ -378,7 +449,20 @@ function renderStacks() {
             empty.className = "stack-empty";
             btn.appendChild(empty);
         } else {
-            pile.forEach((tile) => btn.appendChild(tileNode(tile)));
+            const hidden = pile.length - shown;
+            if (hidden > 0) {
+                const more = document.createElement("span");
+                more.className = "stack-count";
+                more.setAttribute("aria-hidden", "true");
+                more.textContent = `+${hidden}`;
+                btn.appendChild(more);
+            }
+            pile.slice(-shown).forEach((tile, vis) => {
+                const el = tileNode(tile);
+                el.style.setProperty("--stack-y", `${STACK_PAD_TOP + vis * peek}px`);
+                el.style.zIndex = String(vis + 1);
+                btn.appendChild(el);
+            });
         }
         ui.stacks.appendChild(btn);
     });
@@ -407,6 +491,10 @@ function render() {
     ui.undo.classList.toggle("booster-ad", state.undos <= 0);
     ui.wand.classList.toggle("booster-ad", state.wands <= 0);
     ui.extra.classList.toggle("booster-ad", state.extraUsed && !state.extraAdUsed);
+    ui.extraUses.hidden = state.extraUsed && state.extraAdUsed;
+    ui.extraUses.textContent = state.extraUsed
+        ? (state.extraAdUsed ? "" : "▶")
+        : "1";
     ui.shuffle.disabled = busy || state.won || paused;
     ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length);
     ui.wand.disabled = busy || state.won || paused;
@@ -626,9 +714,9 @@ function pickWandColor() {
 
 function takeWandTiles(color) {
     const taken = [];
-    for (let s = 0; s < state.stacks.length && taken.length < 3; s++) {
+    for (let s = state.stacks.length - 1; s >= 0 && taken.length < 3; s--) {
         const pile = state.stacks[s];
-        for (let i = 0; i < pile.length && taken.length < 3; i++) {
+        for (let i = pile.length - 1; i >= 0 && taken.length < 3; i--) {
             if (pile[i].color === color) taken.push({ s, i, tile: pile[i] });
         }
     }
@@ -660,14 +748,18 @@ async function doWand() {
         return;
     }
     const picked = [];
-    for (let s = 0; s < state.stacks.length && picked.length < 3; s++) {
+    for (let s = state.stacks.length - 1; s >= 0 && picked.length < 3; s--) {
         const pile = state.stacks[s];
-        for (let i = 0; i < pile.length && picked.length < 3; i++) {
+        for (let i = pile.length - 1; i >= 0 && picked.length < 3; i--) {
             if (pile[i].color === color) picked.push({ s, i });
         }
     }
     const tileEls = picked
-        .map(({ s, i }) => ui.stacks.querySelector(`[data-i="${s}"]`)?.querySelectorAll(".tile")[i])
+        .map(({ s, i }) => {
+            const pile = state.stacks[s];
+            const dom = i - Math.max(0, pile.length - stackFit.shown);
+            return ui.stacks.querySelector(`[data-i="${s}"]`)?.querySelectorAll(".tile")[dom];
+        })
         .filter(Boolean);
     const target = state.mosaic.findIndex((c) => c.color === color && !c.filled);
     const cellEl = ui.mosaic.querySelector(`[data-i="${target}"]`);
@@ -725,6 +817,7 @@ async function refillWithAd(kind, okText) {
     if (kind === "undos") state.undos += 1;
     if (kind === "wands") state.wands += 1;
     if (kind === "extra") {
+        pushHistory();
         state.extraAdUsed = true;
         state.stacks.push([]);
     }
@@ -796,9 +889,20 @@ ui.mute.addEventListener("click", () => {
 
 ui.playBtn.addEventListener("click", () => enterPlay(nextPlayIndex()));
 $("howto-btn").addEventListener("click", () => showScreen("howto"));
-$("gallery-btn").addEventListener("click", () => showScreen("gallery"));
 $("howto-back").addEventListener("click", () => showScreen("menu"));
+$("gallery-btn").addEventListener("click", () => {
+    galleryPage = 1;
+    showScreen("gallery");
+});
 $("gallery-back").addEventListener("click", () => showScreen("menu"));
+$("gallery-page-1").addEventListener("click", () => {
+    galleryPage = 1;
+    renderGallery();
+});
+$("gallery-page-2").addEventListener("click", () => {
+    galleryPage = 2;
+    renderGallery();
+});
 $("howto-play").addEventListener("click", () => enterPlay(nextPlayIndex(), { fromHowto: true }));
 
 let markTaps = 0;
@@ -887,13 +991,30 @@ if (new URLSearchParams(location.search).has("shot")) {
             showScreen("howto");
         },
         gallery() {
+            galleryPage = 1;
+            showScreen("gallery");
+        },
+        gallery2() {
+            galleryPage = 2;
             showScreen("gallery");
         },
         play() {
-            shotPlay(4, 0.58);
+            shotPlay(0, 0.48);
+        },
+        playfull() {
+            shotPlay(6, 0.42);
+            const color = state.stacks[4]?.[0]?.color || "leaf";
+            while (state.stacks[4].length < 16) {
+                state.stacks[4].push(makeTile(color));
+            }
+            render();
         },
         win() {
             shotWin(1);
         }
     };
+    const shotMode = new URLSearchParams(location.search).get("shot");
+    if (shotMode && window.__mosaeliaShot[shotMode]) {
+        window.__mosaeliaShot[shotMode]();
+    }
 }

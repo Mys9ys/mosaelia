@@ -10,6 +10,7 @@ $gameFiles = @(
     "css\game.css",
     "js\game.js",
     "js\levels.js",
+    "js\art.js",
     "js\platform\index.js",
     "js\platform\local.js",
     "js\platform\stub.js",
@@ -17,7 +18,9 @@ $gameFiles = @(
     "js\platform\vk.js",
     "js\stats.js",
     "js\stats-config.js",
-    "img\filigree.svg"
+    "img\favicon.png",
+    "img\apple-touch-icon.png",
+    "img\paintings\dawn.jpg"
 )
 
 $badName = [regex]"\s|[^\u0000-\u007F]"

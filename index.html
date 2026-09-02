@@ -6,7 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#f6efe4">
     <title>Мозаэлия</title>
-    <link rel="stylesheet" href="css/game.css?v=3">
+    <link rel="stylesheet" href="css/game.css?v=23">
+    <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
 <body>
     <div id="app">
@@ -77,11 +79,15 @@
                 <button class="icon-btn" id="gallery-back" type="button" aria-label="В меню">⌂</button>
                 <div class="titles titles-pill">
                     <div class="brand">Галерея</div>
-                    <div class="level-name">Собранные картины</div>
+                    <div class="level-name" id="gallery-sheet">Мастерская 1</div>
                 </div>
                 <span class="hud-spacer"></span>
             </header>
             <div class="gallery-grid" id="gallery-grid"></div>
+            <nav class="gallery-pager" aria-label="Листы галереи">
+                <button type="button" class="gallery-page on" id="gallery-page-1">1</button>
+                <button type="button" class="gallery-page" id="gallery-page-2">2</button>
+            </nav>
         </section>
 
         <section class="screen" id="screen-play" aria-label="Игра">
@@ -105,10 +111,6 @@
             <div class="stage">
                 <div class="frame-wrap">
                     <div class="frame" id="frame">
-                        <i class="filigree tl" aria-hidden="true"></i>
-                        <i class="filigree tr" aria-hidden="true"></i>
-                        <i class="filigree bl" aria-hidden="true"></i>
-                        <i class="filigree br" aria-hidden="true"></i>
                         <div class="frame-inner">
                             <div class="mosaic" id="mosaic"></div>
                         </div>
@@ -143,7 +145,7 @@
                     Палочка
                 </button>
                 <button class="booster booster-extra" id="extra" type="button">
-                    <span class="booster-face">＋</span>
+                    <span class="booster-face">＋<span class="uses" id="extra-uses">1</span></span>
                     Слот
                 </button>
             </footer>
@@ -179,6 +181,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=3"></script>
+    <script type="module" src="js/game.js?v=23"></script>
 </body>
 </html>
