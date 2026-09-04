@@ -1,4 +1,4 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=23";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=24";
 import { createPlatform } from "./platform/index.js";
 import { track } from "./stats.js";
 
@@ -98,7 +98,11 @@ function defaultSave() {
         unlocked: 0,
         completed: [],
         seenHowto: false,
-        dev: false
+        dev: false,
+        shuffles: SHUFFLE_MAX,
+        undos: UNDO_MAX,
+        wands: WAND_MAX,
+        extraUsed: false
     };
 }
 
@@ -122,6 +126,26 @@ const state = {
 
 function persist() {
     Promise.resolve(platform.save(save)).catch(() => {});
+}
+
+function readCount(value, fallback) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : fallback;
+}
+
+function syncBoosters() {
+    save.shuffles = state.shuffles;
+    save.undos = state.undos;
+    save.wands = state.wands;
+    save.extraUsed = state.extraUsed;
+    persist();
+}
+
+function applyBoostersFromSave() {
+    state.shuffles = readCount(save.shuffles, SHUFFLE_MAX);
+    state.undos = readCount(save.undos, UNDO_MAX);
+    state.wands = readCount(save.wands, WAND_MAX);
+    state.extraUsed = Boolean(save.extraUsed);
 }
 
 function isDev() {
@@ -368,10 +392,7 @@ function startLevel(index) {
         filled: false
     }));
     state.hand = null;
-    state.shuffles = SHUFFLE_MAX;
-    state.undos = UNDO_MAX;
-    state.wands = WAND_MAX;
-    state.extraUsed = false;
+    applyBoostersFromSave();
     state.extraAdUsed = false;
     state.history = [];
     state.won = false;
@@ -673,6 +694,7 @@ function doUndo() {
     if (!state.history.length) return;
     restoreRun(state.history.pop());
     state.undos -= 1;
+    syncBoosters();
     beep(240, 0.08);
     render();
 }
@@ -691,6 +713,7 @@ function doShuffle() {
     state.stacks = sizes.map((n) => pool.splice(0, n));
     state.deck = pool;
     state.shuffles -= 1;
+    syncBoosters();
     beep(280, 0.06);
     beep(340, 0.08);
     render();
@@ -770,6 +793,7 @@ async function doWand() {
     busy = true;
     pushHistory();
     state.wands -= 1;
+    syncBoosters();
     const dest = cellEl.getBoundingClientRect();
     tileEls.forEach((el) => {
         el.style.visibility = "hidden";
@@ -797,6 +821,7 @@ function doExtra() {
     pushHistory();
     state.extraUsed = true;
     state.stacks.push([]);
+    syncBoosters();
     beep(500, 0.08);
     render();
     toast("Ещё одна канавка");
@@ -821,6 +846,7 @@ async function refillWithAd(kind, okText) {
         state.extraAdUsed = true;
         state.stacks.push([]);
     }
+    syncBoosters();
     beep(500, 0.08);
     render();
     toast(okText);
@@ -922,6 +948,10 @@ $("dev-mark").addEventListener("click", () => {
 $("dev-reset").addEventListener("click", () => {
     save.unlocked = 0;
     save.completed = [];
+    save.shuffles = SHUFFLE_MAX;
+    save.undos = UNDO_MAX;
+    save.wands = WAND_MAX;
+    save.extraUsed = false;
     persist();
     renderMenu();
     toast("Прогресс сброшен, картины в мастере всё ещё открыты");
@@ -955,7 +985,11 @@ if (new URLSearchParams(location.search).has("shot")) {
         mute: false,
         coins: 240,
         unlocked: 8,
-        completed: LEVELS.slice(0, 6).map((level) => level.id)
+        completed: LEVELS.slice(0, 6).map((level) => level.id),
+        shuffles: SHUFFLE_MAX,
+        undos: UNDO_MAX,
+        wands: WAND_MAX,
+        extraUsed: false
     });
     const shotPlay = (index, fill) => {
         showScreen("play");

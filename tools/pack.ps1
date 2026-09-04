@@ -44,7 +44,7 @@ foreach ($rel in $gameFiles) {
 }
 
 $html = Get-Content (Join-Path $root "index.html") -Raw -Encoding UTF8
-if ($html -notmatch 'href="css/game.css"' -or $html -notmatch 'src="js/game.js"') {
+if ($html -notmatch 'href="css/game.css' -or $html -notmatch 'src="js/game.js') {
     $errors.Add("index.html must use relative css/js paths")
 }
 if ($html -match "mosaelia\.com") {
