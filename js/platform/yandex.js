@@ -1,17 +1,30 @@
-import { bindVisibility, insideYandex, loadScript, placeholderAd, readLocal, withTimeout, writeLocal } from "./local.js";
+import { bindVisibility, loadScript, placeholderAd, readLocal, writeLocal } from "./local.js";
 
-const SDK_SRC = "https://yandex.ru/games/sdk/v2";
+const SDK_SRC = "/sdk.js";
 
 export function createYandex() {
     let ysdk = null;
     let player = null;
     let saveTimer = 0;
     let pending = null;
+    let playing = false;
     const pauseFns = [];
     const resumeFns = [];
 
     const firePause = () => pauseFns.forEach((fn) => fn());
     const fireResume = () => resumeFns.forEach((fn) => fn());
+
+    function gameplayStart() {
+        if (playing) return;
+        playing = true;
+        ysdk?.features?.GameplayAPI?.start();
+    }
+
+    function gameplayStop() {
+        if (!playing) return;
+        playing = false;
+        ysdk?.features?.GameplayAPI?.stop();
+    }
 
     async function flush() {
         if (!player || pending == null) return;
@@ -24,30 +37,42 @@ export function createYandex() {
         }
     }
 
+    async function ensureSdk() {
+        if (window.YaGames) return;
+        await loadScript(SDK_SRC, 8000);
+        if (!window.YaGames) {
+            throw new Error("YaGames is not defined");
+        }
+    }
+
     return {
         id: "yandex",
         async init() {
             bindVisibility(() => {
                 firePause();
+                gameplayStop();
                 flush();
-            }, fireResume);
+            }, () => {
+                fireResume();
+            });
+            await ensureSdk();
+            ysdk = await window.YaGames.init();
+            ysdk.on("game_api_pause", () => {
+                firePause();
+                gameplayStop();
+            });
+            ysdk.on("game_api_resume", fireResume);
             try {
-                await loadScript(SDK_SRC);
-                ysdk = await withTimeout(window.YaGames.init(), 2500, "YaGames.init");
-                ysdk.on("game_api_pause", firePause);
-                ysdk.on("game_api_resume", fireResume);
-                try {
-                    player = await ysdk.getPlayer();
-                } catch {
-                    player = null;
-                }
-            } catch (err) {
-                console.warn("Yandex SDK недоступен, сейв локальный", err);
+                player = await ysdk.getPlayer();
+            } catch {
+                player = null;
             }
         },
         ready() {
             ysdk?.features?.LoadingAPI?.ready();
         },
+        gameplayStart,
+        gameplayStop,
         async save(data) {
             writeLocal(data);
             if (!player) return;
@@ -72,48 +97,42 @@ export function createYandex() {
             return remote || local;
         },
         async showInterstitial() {
-            if (!insideYandex() || !ysdk?.adv?.showFullscreenAdv) {
+            if (!ysdk?.adv?.showFullscreenAdv) {
                 return placeholderAd(
                     "Между картинами",
                     "Вне каталога Яндекс Игр показываем заглушку, чтобы не зависать."
                 );
             }
-            try {
-                return await withTimeout(new Promise((resolve) => {
-                    ysdk.adv.showFullscreenAdv({
-                        callbacks: {
-                            onClose: () => resolve(true),
-                            onError: () => resolve(false)
-                        }
-                    });
-                }), 2500, "interstitial");
-            } catch {
-                return placeholderAd("Между картинами", "Ролик площадки не открылся, идём дальше.");
-            }
+            gameplayStop();
+            return new Promise((resolve) => {
+                ysdk.adv.showFullscreenAdv({
+                    callbacks: {
+                        onClose: () => resolve(true),
+                        onError: () => resolve(false)
+                    }
+                });
+            });
         },
         async showRewarded() {
-            if (!insideYandex() || !ysdk?.adv?.showRewardedVideo) {
+            if (!ysdk?.adv?.showRewardedVideo) {
                 return placeholderAd(
                     "Награда за просмотр",
                     "Вне каталога Яндекс Игр показываем заглушку, чтобы не зависать."
                 );
             }
-            try {
-                return await withTimeout(new Promise((resolve) => {
-                    let rewarded = false;
-                    ysdk.adv.showRewardedVideo({
-                        callbacks: {
-                            onRewarded: () => {
-                                rewarded = true;
-                            },
-                            onClose: () => resolve(rewarded),
-                            onError: () => resolve(false)
-                        }
-                    });
-                }), 2500, "rewarded");
-            } catch {
-                return false;
-            }
+            gameplayStop();
+            return new Promise((resolve) => {
+                let rewarded = false;
+                ysdk.adv.showRewardedVideo({
+                    callbacks: {
+                        onRewarded: () => {
+                            rewarded = true;
+                        },
+                        onClose: () => resolve(rewarded),
+                        onError: () => resolve(false)
+                    }
+                });
+            });
         },
         onPause(fn) {
             pauseFns.push(fn);

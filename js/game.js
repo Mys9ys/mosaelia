@@ -1,4 +1,4 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=24";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=27";
 import { createPlatform } from "./platform/index.js";
 import { track } from "./stats.js";
 
@@ -181,6 +181,8 @@ function showScreen(name) {
     });
     if (name === "menu") renderMenu();
     if (name === "gallery") renderGallery();
+    if (name === "play" && !state.won) platform.gameplayStart();
+    else platform.gameplayStop();
 }
 
 function renderMenu() {
@@ -411,6 +413,7 @@ function startLevel(index) {
     }
     state.deck = pile;
     render();
+    if (screen === "play") platform.gameplayStart();
 }
 
 function pushHistory() {
@@ -608,6 +611,7 @@ function checkWin() {
     if (!state.mosaic.every((c) => c.filled)) return;
     state.won = true;
     finishLevel();
+    platform.gameplayStop();
     ui.frame.classList.add("complete");
     const last = state.levelIndex >= LEVELS.length - 1;
     ui.winTitle.textContent = last ? "Мастерская полна!" : "Картина готова!";
@@ -672,6 +676,7 @@ function drawDeck() {
 async function runAd(kind) {
     paused = true;
     audioCtx?.suspend();
+    platform.gameplayStop();
     render();
     try {
         if (kind === "rewarded") return await platform.showRewarded();
@@ -681,6 +686,7 @@ async function runAd(kind) {
     } finally {
         paused = false;
         if (!document.hidden) audioCtx?.resume();
+        if (screen === "play" && !state.won) platform.gameplayStart();
         render();
     }
 }

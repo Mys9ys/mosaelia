@@ -13,6 +13,8 @@ export function createStub() {
             bindVisibility(firePause, fireResume);
         },
         ready() {},
+        gameplayStart() {},
+        gameplayStop() {},
         async save(data) {
             writeLocal(data);
         },
@@ -22,7 +24,7 @@ export function createStub() {
         async showInterstitial() {
             return placeholderAd(
                 "Между картинами",
-                "Заглушка для OSPanel. На Яндексе и VK здесь будет полноэкранный ролик."
+                "Заглушка для OSPanel. На площадке здесь будет полноэкранный ролик."
             );
         },
         async showRewarded() {

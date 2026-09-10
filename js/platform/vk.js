@@ -1,12 +1,7 @@
 import { bindVisibility, loadScript, placeholderAd, readLocal, withTimeout, writeLocal } from "./local.js";
 
 const STORAGE_KEY = "mosaelia";
-const SDK_SRC = "https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js";
-
-function insideVk() {
-    const query = new URLSearchParams(location.search);
-    return query.has("vk_user_id") || query.has("vk_app_id");
-}
+const SDK_SRC = new URL("../vendor/vk-bridge.min.js", import.meta.url).href;
 
 export function createVk() {
     let bridge = null;
@@ -33,6 +28,21 @@ export function createVk() {
         }
     }
 
+    async function nativeAd(format) {
+        try {
+            const check = await bridge.send("VKWebAppCheckNativeAds", { ad_format: format });
+            if (check && check.result === false) return false;
+        } catch {
+            /* older clients — try show anyway */
+        }
+        try {
+            const res = await bridge.send("VKWebAppShowNativeAds", { ad_format: format });
+            return Boolean(res?.result);
+        } catch {
+            return false;
+        }
+    }
+
     return {
         id: "vk",
         async init() {
@@ -41,13 +51,10 @@ export function createVk() {
                 flush();
             }, fireResume);
             try {
-                if (!insideVk()) {
-                    return;
-                }
-                await loadScript(SDK_SRC);
+                if (!getBridge()) await loadScript(SDK_SRC, 8000);
                 bridge = getBridge();
                 if (!bridge) throw new Error("vkBridge missing");
-                await withTimeout(bridge.send("VKWebAppInit"), 2500, "VKWebAppInit");
+                await withTimeout(bridge.send("VKWebAppInit"), 8000, "VKWebAppInit");
                 bridge.subscribe((event) => {
                     const type = event?.detail?.type;
                     if (type === "VKWebAppViewHide" || type === "VKWebAppPause") firePause();
@@ -59,6 +66,8 @@ export function createVk() {
             }
         },
         ready() {},
+        gameplayStart() {},
+        gameplayStop() {},
         async save(data) {
             writeLocal(data);
             if (!bridge) return;
@@ -87,37 +96,19 @@ export function createVk() {
             if (!bridge) {
                 return placeholderAd(
                     "Между картинами",
-                    "Вне VK показываем заглушку, чтобы не зависать на SDK."
+                    "Вне площадки показываем заглушку, чтобы не зависать на SDK."
                 );
             }
-            try {
-                await withTimeout(
-                    bridge.send("VKWebAppShowNativeAds", { ad_format: "interstitial" }),
-                    2500,
-                    "vk interstitial"
-                );
-                return true;
-            } catch {
-                return placeholderAd("Между картинами", "Ролик VK не открылся, идём дальше.");
-            }
+            return nativeAd("interstitial");
         },
         async showRewarded() {
             if (!bridge) {
                 return placeholderAd(
                     "Награда за просмотр",
-                    "Вне VK показываем заглушку, чтобы не зависать на SDK."
+                    "Вне площадки показываем заглушку, чтобы не зависать на SDK."
                 );
             }
-            try {
-                const res = await withTimeout(
-                    bridge.send("VKWebAppShowNativeAds", { ad_format: "reward" }),
-                    2500,
-                    "vk rewarded"
-                );
-                return Boolean(res?.result);
-            } catch {
-                return false;
-            }
+            return nativeAd("reward");
         },
         onPause(fn) {
             pauseFns.push(fn);
