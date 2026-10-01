@@ -1,4 +1,4 @@
-import { createLevel as level } from "./levels.js?v=50";
+import { createLevel as level } from "./levels.js?v=53";
 
 function g(...rows) {
     return rows.map((row) => row.trim().split(/\s+/));

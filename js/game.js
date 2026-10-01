@@ -1,8 +1,8 @@
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=50";
-import { FRAMES } from "./frames.js?v=50";
-import { OCT_LEVELS } from "./october.js?v=50";
-import { HW_LEVELS } from "./halloween.js?v=50";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=50";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=53";
+import { FRAMES } from "./frames.js?v=53";
+import { OCT_LEVELS } from "./october.js?v=53";
+import { HW_LEVELS } from "./halloween.js?v=53";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=53";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
 
@@ -16,8 +16,11 @@ const UNDO_MAX = 5;
 const SHUFFLE_MAX = 3;
 const WAND_MAX = 2;
 const REWARD = 50;
+const REPLAY_REWARD = 5;
 const CLEAN_BONUS = 25;
 const DAILY_BONUS = 20;
+const RANK_PLACE_COIN = 10;
+const RANK_PLACE_CAP = 50;
 const AD_HELP_MAX = 3;
 const NEWS_ID = "2026-10-01";
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
@@ -591,8 +594,7 @@ function renderGallery() {
             if (best) {
                 const meta = document.createElement("span");
                 meta.className = "gallery-meta";
-                const stars = save.bestStars?.[level.id] || starsFor(best, parFor(level));
-                meta.textContent = `${formatMoves(best)} · ${stars} из 3`;
+                meta.textContent = formatMoves(best);
                 foot.append(meta);
             }
             const rankBtn = document.createElement("button");
@@ -1036,7 +1038,33 @@ function paintWinStars(count) {
     });
 }
 
-function finishLevel() {
+function rankPlace(rows, id, moves) {
+    const board = (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: String(row.id || ""),
+        moves: Number(row.moves) || 9999
+    }));
+    const mine = String(id || "");
+    const at = board.findIndex((row) => row.id === mine);
+    if (at >= 0) board[at].moves = Number(moves) || 9999;
+    else board.push({ id: mine, moves: Number(moves) || 9999 });
+    board.sort((a, b) => a.moves - b.moves);
+    const i = board.findIndex((row) => row.id === mine);
+    return i >= 0 ? i + 1 : 0;
+}
+
+async function rankClimbPrize(levelId, oldMoves, newMoves) {
+    if (!oldMoves || !(newMoves < oldMoves)) return 0;
+    const rows = await fetchRanks(levelId);
+    const me = guestId();
+    const oldPlace = rankPlace(rows, me, oldMoves);
+    const newPlace = rankPlace(rows, me, newMoves);
+    if (newPlace && oldPlace && newPlace < oldPlace) {
+        return Math.min(RANK_PLACE_CAP, (oldPlace - newPlace) * RANK_PLACE_COIN);
+    }
+    return 0;
+}
+
+async function finishLevel() {
     const level = currentLevel();
     const id = level.id;
     const first = !save.completed.includes(id);
@@ -1055,20 +1083,30 @@ function finishLevel() {
     if (!save.cleanRuns) save.cleanRuns = {};
     if (record) save.bestMoves[id] = moves;
     save.bestStars[id] = Math.max(Number(save.bestStars[id]) || 0, stars);
-    let bonus = 0;
-    if (clean && !save.cleanRuns[id]) {
-        save.cleanRuns[id] = true;
-        bonus += CLEAN_BONUS;
-    } else if (clean) {
-        save.cleanRuns[id] = true;
-    }
+    const newClean = clean && !save.cleanRuns[id];
+    if (clean) save.cleanRuns[id] = true;
     const today = todayIso();
+    let bonus = 0;
+    let payout = REWARD;
+    let firstDay = false;
+    let rankPrize = 0;
+    let replay = false;
     if (state.dailyMode) {
         const iso = state.calIso || today;
         if (!save.calDays) save.calDays = {};
-        const prevDay = save.calDays[iso];
-        const firstDay = !prevDay?.moves;
-        if (firstDay) bonus += DAILY_BONUS;
+        const prevDay = save.calDays[iso]
+            || (iso === today && Number(save.dailyBest) > 0 ? { moves: Number(save.dailyBest) } : null);
+        firstDay = !prevDay?.moves;
+        replay = !firstDay;
+        if (firstDay) {
+            if (newClean) bonus += CLEAN_BONUS;
+            bonus += DAILY_BONUS;
+            payout = REWARD + bonus;
+        } else {
+            rankPrize = await rankClimbPrize(id, Number(prevDay.moves), moves);
+            payout = REPLAY_REWARD + rankPrize;
+            bonus = rankPrize;
+        }
         if (!prevDay?.moves || moves < prevDay.moves) {
             save.calDays[iso] = { moves, stars, clean, level: id };
         } else if (clean && !prevDay.clean) {
@@ -1081,8 +1119,16 @@ function finishLevel() {
             save.dailyStars = save.calDays[iso].stars;
             save.dailyClean = Boolean(save.calDays[iso].clean);
         }
+    } else if (!first) {
+        replay = true;
+        rankPrize = await rankClimbPrize(id, prev, moves);
+        payout = REPLAY_REWARD + rankPrize;
+        bonus = rankPrize;
+    } else {
+        if (newClean) bonus += CLEAN_BONUS;
+        payout = REWARD + bonus;
     }
-    state.payout = REWARD + bonus;
+    state.payout = payout;
     persist();
     platform.submitScore?.(masteryScore());
     track("complete", {
@@ -1095,7 +1141,7 @@ function finishLevel() {
         clean: clean ? 1 : 0,
         name: platform.playerName?.() || ""
     });
-    return { moves, par, stars, record, prev, clean, bonus };
+    return { moves, par, stars, record, prev, clean, bonus, payout, firstDay, rankPrize, replay };
 }
 
 function paintRankList(rows, mine) {
@@ -1326,14 +1372,14 @@ async function onCalDayClick(iso) {
     enterPlay(octIndexForIso(iso, OCT_LEVELS.length), { daily: true, calIso: iso, back: "bonus" });
 }
 
-function checkWin() {
+async function checkWin() {
     if (!state.mosaic.every((c) => c.filled)) return;
     state.won = true;
     browsingRanks = false;
     if (state.dailyMode) overlayBack = overlayBack || "menu";
     else if (wingOf(currentLevel()) === 4) overlayBack = overlayBack || "gallery";
     else overlayBack = "menu";
-    const result = finishLevel();
+    const result = await finishLevel();
     platform.gameplayStop();
     ui.frame.classList.add("complete");
     const nxt = nextAfterWin();
@@ -1341,12 +1387,23 @@ function checkWin() {
     const hw = !state.dailyMode && wingOf(currentLevel()) === 4;
     const openedWing2 = !state.dailyMode && wingOf(currentLevel()) === 1 && workshop2Open();
     const openedWing3 = !state.dailyMode && currentLevel().id === "aurora" && workshop3Open();
-    const bits = [`+${REWARD} монет`];
-    if (result.bonus) bits.push(`+${result.bonus} бонус`);
+    const bits = [];
+    if (result.replay) {
+        bits.push(`+${REPLAY_REWARD} монет`);
+        if (result.rankPrize) bits.push(`+${result.rankPrize} за место`);
+    } else {
+        bits.push(`+${REWARD} монет`);
+        if (result.bonus) bits.push(`+${result.bonus} бонус`);
+    }
+    const replayCopy = result.rankPrize
+        ? "Место в рейтинге выросло — вот приз за это."
+        : "Повтор: 5 монет. Приз будет, если поднимешься в рейтинге.";
     if (state.dailyMode) {
         fillWinSheet({
             title: "Картина дня готова!",
-            copy: "Вот твой результат и рейтинг. Повтор — только если хочешь улучшить ходы.",
+            copy: result.firstDay
+                ? "Вот твой результат и рейтинг. Повтор — 5 монет, приз за более высокое место."
+                : replayCopy,
             movesText: result.record
                 ? `Новый рекорд: ${formatMoves(result.moves)}`
                 : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
@@ -1362,7 +1419,7 @@ function checkWin() {
             title: last ? "Хэллоуин собран!" : "Картина готова!",
             copy: last
                 ? "Все хэллоуинские картины можно снова открыть в галерее."
-                : "Мозаика собрана. В галерее лист «Хэл».",
+                : (result.replay ? replayCopy : "Мозаика собрана. В галерее лист «Хэл»."),
             movesText: result.record
                 ? `Новый рекорд: ${formatMoves(result.moves)}`
                 : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
@@ -1386,7 +1443,7 @@ function checkWin() {
                     ? "Третья мастерская открыта в галерее."
                     : (openedWing2 && currentLevel().id === "night"
                         ? "Вторая мастерская открыта в галерее."
-                        : "Мозаика собрана и повешена в галерею.")),
+                        : (result.replay ? replayCopy : "Мозаика собрана и повешена в галерею."))),
             movesText: result.record
                 ? `Новый рекорд: ${formatMoves(result.moves)}`
                 : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
@@ -1417,7 +1474,7 @@ async function placeOnStack(index) {
     render();
     beep(320, 0.05, "sine", 0.03);
     await resolveMerges();
-    checkWin();
+    await checkWin();
     busy = false;
     render();
 }
@@ -1598,7 +1655,7 @@ async function doWand() {
     ui.mosaic.querySelector(`[data-i="${target}"]`)?.classList.add("pop");
     beep(620, 0.1, "sine", 0.05);
     await resolveMerges();
-    checkWin();
+    await checkWin();
     busy = false;
     render();
 }
