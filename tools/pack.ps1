@@ -13,12 +13,14 @@ $yandexFiles = @(
     "js\frames.js",
     "js\calendar.js",
     "js\october.js",
+    "js\halloween.js",
     "js\platform\index.js",
     "js\platform\local.js",
     "js\platform\yandex.js",
     "js\stats.js",
     "img\favicon.png",
-    "img\apple-touch-icon.png"
+    "img\apple-touch-icon.png",
+    "img\halloween-banner.jpg"
 )
 
 $vkFiles = @(
@@ -29,6 +31,7 @@ $vkFiles = @(
     "js\frames.js",
     "js\calendar.js",
     "js\october.js",
+    "js\halloween.js",
     "js\platform\index.js",
     "js\platform\local.js",
     "js\platform\stub.js",
@@ -37,7 +40,8 @@ $vkFiles = @(
     "js\stats.js",
     "js\stats-config.js",
     "img\favicon.png",
-    "img\apple-touch-icon.png"
+    "img\apple-touch-icon.png",
+    "img\halloween-banner.jpg"
 )
 
 $checkFiles = @($yandexFiles + $vkFiles | Select-Object -Unique)
@@ -118,15 +122,23 @@ function Finish-YandexPack([string]$dest) {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $indexPath = Join-Path $dest "index.html"
     $html = [System.IO.File]::ReadAllText($indexPath)
-    if ($html -notmatch '<!-- mosaelia-yandex-pack-3 -->') {
+    if ($html -notmatch '<!-- mosaelia-yandex-pack-okt -->') {
         $html = $html.Replace(
             "    <!-- Yandex Games SDK -->",
-            "    <!-- mosaelia-yandex-pack-3 --><!-- Yandex Games SDK -->"
+            "    <!-- mosaelia-yandex-pack-okt --><!-- Yandex Games SDK -->"
         )
         [System.IO.File]::WriteAllText($indexPath, $html, $utf8)
     }
     if ($html -notmatch 'src="/sdk.js"') {
         throw "Yandex index.html must include /sdk.js"
+    }
+
+    Get-ChildItem $dest -Recurse -File -Include *.html, *.js | ForEach-Object {
+        $text = [System.IO.File]::ReadAllText($_.FullName)
+        $clean = [regex]::Replace($text, 'https://mosaelia\.ru[^"''\s]*', '#')
+        if ($clean -ne $text) {
+            [System.IO.File]::WriteAllText($_.FullName, $clean, $utf8)
+        }
     }
 
     [System.IO.File]::WriteAllText(
@@ -299,7 +311,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 Write-PosixZip $yandexDir $yandexZip
 Assert-StoreZip $yandexZip "Yandex"
-$yandexZipNum = Join-Path $dist "mosaelia-yandex-3.zip"
+$yandexZipNum = Join-Path $dist "mosaelia-yandex-okt.zip"
 Copy-Item $yandexZip $yandexZipNum -Force
 
 # ZIP for upload: game files only (no Apache/Netlify extras).
@@ -317,7 +329,7 @@ $vkKb = [math]::Round((Get-Item $vkZip).Length / 1KB, 1)
 Write-Host ""
 Write-Host "Yandex ZIP  $yandexZipNum"
 Write-Host "  index.html at root: yes"
-Write-Host "  pack mark: mosaelia-yandex-pack-3"
+Write-Host "  pack mark: mosaelia-yandex-pack-okt"
 Write-Host "  zip: $yandexKb KB  upload in console: Draft / Archive"
 Write-Host ""
 Write-Host "VK ZIP      $vkZip"

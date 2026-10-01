@@ -8,7 +8,7 @@
     <title>Мозаэлия</title>
     <!-- Yandex Games SDK -->
     <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=44">
+    <link rel="stylesheet" href="css/game.css?v=48">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
@@ -35,12 +35,12 @@
     <div id="app">
         <section class="screen active" id="screen-menu" aria-label="Главное меню">
             <div class="menu-hero">
-                <div class="mark" id="dev-mark">Королевство мозаик</div>
                 <div class="dev-panel" id="dev-panel" hidden>
                     <a class="dev-stats" id="dev-stats" href="https://mosaelia.ru/stats/?k=ms2026" target="_blank" rel="noopener">Статистика</a>
                     <button class="dev-text-btn" id="dev-reset" type="button">Сброс</button>
                     <button class="dev-text-btn" id="dev-off" type="button">Выйти</button>
                 </div>
+                <div class="mark" id="dev-mark">Королевство мозаик</div>
                 <h1>Мозаэлия</h1>
                 <p class="menu-lead">Собирай плитки, проявляй картины, обживай мастерские.</p>
                 <div class="menu-progress">
@@ -51,6 +51,10 @@
                     </span>
                 </div>
                 <p class="platform-chip" id="platform-chip" hidden></p>
+                <button class="hw-banner" id="hw-banner" type="button" hidden>
+                    <img src="img/halloween-banner.jpg" alt="">
+                    <span class="hw-banner-copy"><strong>Хэллоуин</strong> 18 уютных картин</span>
+                </button>
             </div>
             <div class="menu-actions">
                 <button class="primary" id="play-btn" type="button">Играть</button>
@@ -113,6 +117,8 @@
                 <button type="button" class="gallery-page on" id="gallery-page-1">1</button>
                 <button type="button" class="gallery-page" id="gallery-page-2">2</button>
                 <button type="button" class="gallery-page" id="gallery-page-3">3</button>
+                <button type="button" class="gallery-page wide" id="gallery-page-hw" hidden>Хэл</button>
+                <button type="button" class="gallery-page" id="gallery-page-soon">4</button>
             </nav>
         </section>
 
@@ -278,6 +284,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=44"></script>
+    <script type="module" src="js/game.js?v=48"></script>
 </body>
 </html>

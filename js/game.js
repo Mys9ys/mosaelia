@@ -1,9 +1,12 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=44";
-import { FRAMES } from "./frames.js?v=44";
-import { OCT_LEVELS } from "./october.js?v=44";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=44";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=48";
+import { FRAMES } from "./frames.js?v=48";
+import { OCT_LEVELS } from "./october.js?v=48";
+import { HW_LEVELS } from "./halloween.js?v=48";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=48";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
+
+const LEVELS = CAMPAIGN.concat(HW_LEVELS);
 
 const STACK_COUNT = 5;
 const STACK_VISIBLE = 6;
@@ -75,7 +78,9 @@ const ui = {
     gallerySheet: $("gallery-sheet"),
     galleryPage1: $("gallery-page-1"),
     galleryPage2: $("gallery-page-2"),
-    galleryPage3: $("gallery-page-3")
+    galleryPage3: $("gallery-page-3"),
+    galleryPageHw: $("gallery-page-hw"),
+    galleryPageSoon: $("gallery-page-soon")
 };
 
 let galleryPage = 1;
@@ -108,6 +113,10 @@ function measureStackFit() {
 function syncViewport() {
     const h = Math.round(window.visualViewport?.height || window.innerHeight || 0);
     if (h > 40) document.documentElement.style.setProperty("--app-h", `${h}px`);
+    if (screen === "play") {
+        fitPlayMosaic();
+        if (ui.stacks?.childElementCount) renderStacks();
+    }
 }
 
 let tileSeq = 1;
@@ -199,12 +208,68 @@ function isDev() {
     return Boolean(save.dev);
 }
 
+function halloweenLive() {
+    if (isDev()) return true;
+    const q = new URLSearchParams(location.search);
+    if (q.has("hw") || q.has("shot")) return true;
+    return todayIso() >= "2026-10-15";
+}
+
+function syncHalloweenUi() {
+    const live = halloweenLive();
+    const banner = $("hw-banner");
+    const tab = $("gallery-page-hw");
+    if (banner) banner.hidden = !live;
+    if (tab) tab.hidden = !live;
+    if (!live && galleryPage === 4) galleryPage = 1;
+}
+
+function fitPlayMosaic() {
+    const wrap = ui.frame?.parentElement;
+    if (!wrap || !ui.frame || !ui.mosaic || screen !== "play") return;
+    const level = currentLevel();
+    const cols = Math.max(1, level?.cols || 5);
+    const rows = Math.max(1, level?.rows || 4);
+    ui.mosaic.style.width = "";
+    ui.mosaic.style.height = "";
+    const wrapBox = wrap.getBoundingClientRect();
+    if (wrapBox.width < 20 || wrapBox.height < 20) return;
+    const frameCs = getComputedStyle(ui.frame);
+    const inner = ui.frame.querySelector(".frame-inner");
+    const innerCs = inner ? getComputedStyle(inner) : null;
+    const chromeX = (parseFloat(frameCs.paddingLeft) || 0)
+        + (parseFloat(frameCs.paddingRight) || 0)
+        + (innerCs ? (parseFloat(innerCs.paddingLeft) || 0) + (parseFloat(innerCs.paddingRight) || 0) : 0);
+    const chromeY = (parseFloat(frameCs.paddingTop) || 0)
+        + (parseFloat(frameCs.paddingBottom) || 0)
+        + (innerCs ? (parseFloat(innerCs.paddingTop) || 0) + (parseFloat(innerCs.paddingBottom) || 0) : 0);
+    const maxW = Math.max(48, Math.min(wrapBox.width, 340) - chromeX);
+    const maxH = Math.max(48, wrapBox.height - chromeY);
+    const cell = Math.min(maxW / cols, maxH / rows);
+    const w = Math.floor(cell * cols);
+    const h = Math.floor(cell * rows);
+    ui.mosaic.style.width = `${w}px`;
+    ui.mosaic.style.height = `${h}px`;
+    ui.mosaic.style.maxWidth = "none";
+    ui.mosaic.style.maxHeight = "none";
+    ui.mosaic.style.aspectRatio = "auto";
+}
+
 function isUnlocked(index) {
     const level = LEVELS[index];
-    if (wingOf(level) >= 3) return isDev();
-    return isDev()
-        || index <= save.unlocked
-        || save.completed.includes(level?.id);
+    const w = wingOf(level);
+    if (isDev() || save.completed.includes(level?.id)) return true;
+    if (w === 4) {
+        if (!halloweenLive()) return false;
+        const i = HW_LEVELS.findIndex((item) => item.id === level.id);
+        return i === 0 || save.completed.includes(HW_LEVELS[i - 1]?.id);
+    }
+    if (w > 3) return false;
+    if (w === 2 && !workshop2Open()) return false;
+    if (w === 3 && !workshop3Open()) return false;
+    const first3 = LEVELS.findIndex((item) => wingOf(item) === 3);
+    const gate = workshop3Open() && first3 >= 0 ? first3 : 0;
+    return index <= Math.max(save.unlocked, gate);
 }
 
 function wingOf(level) {
@@ -215,16 +280,34 @@ function workshop2Open() {
     return isDev() || LEVELS.filter((level) => wingOf(level) === 1).every((level) => save.completed.includes(level.id));
 }
 
+function workshop3Open() {
+    return isDev() || LEVELS.filter((level) => wingOf(level) === 2).every((level) => save.completed.includes(level.id));
+}
+
 function playableLevels() {
-    return LEVELS.filter((level) => wingOf(level) < 3);
+    return LEVELS.filter((level) => wingOf(level) < 4);
 }
 
 function lastPlayableIndex() {
     let last = 0;
     LEVELS.forEach((level, i) => {
-        if (wingOf(level) < 3) last = i;
+        if (wingOf(level) < 4) last = i;
     });
     return last;
+}
+
+function nextAfterWin() {
+    if (state.dailyMode) return null;
+    const wing = wingOf(currentLevel());
+    if (wing === 4) {
+        for (let i = state.levelIndex + 1; i < LEVELS.length; i++) {
+            if (wingOf(LEVELS[i]) === 4) return i;
+        }
+        return null;
+    }
+    if (wing > 3) return null;
+    if (state.levelIndex >= lastPlayableIndex()) return null;
+    return state.levelIndex + 1;
 }
 
 function moscowDateKey() {
@@ -358,7 +441,7 @@ function nextPlayIndex() {
     const playable = playableLevels();
     if (playable.every((level) => save.completed.includes(level.id))) return 0;
     for (let i = 0; i <= save.unlocked && i <= last; i++) {
-        if (wingOf(LEVELS[i]) >= 3) continue;
+        if (wingOf(LEVELS[i]) >= 4) continue;
         if (!save.completed.includes(LEVELS[i].id)) return i;
     }
     return Math.min(save.unlocked, last);
@@ -414,6 +497,7 @@ function renderMenu() {
     const forced = new URLSearchParams(location.search).has("platform");
     chip.hidden = !(isDev() || forced);
     chip.textContent = `Площадка: ${platform.id}`;
+    syncHalloweenUi();
 }
 
 function miniMosaic(level, filled) {
@@ -437,23 +521,36 @@ function miniMosaic(level, filled) {
 }
 
 function renderGallery() {
+    syncHalloweenUi();
     ui.galleryGrid.replaceChildren();
     const sheet = $("gallery-sheet");
-    if (galleryPage > 3) galleryPage = 1;
+    if (![1, 2, 3, 4, 5].includes(galleryPage)) galleryPage = 1;
     ui.galleryPage1?.classList.toggle("on", galleryPage === 1);
     ui.galleryPage2?.classList.toggle("on", galleryPage === 2);
     ui.galleryPage3?.classList.toggle("on", galleryPage === 3);
+    ui.galleryPageHw?.classList.toggle("on", galleryPage === 4);
+    ui.galleryPageSoon?.classList.toggle("on", galleryPage === 5);
+    if (galleryPage === 5) {
+        if (sheet) sheet.textContent = "Скоро";
+        const empty = document.createElement("div");
+        empty.className = "gallery-soon";
+        empty.innerHTML = '<svg class="ico"><use href="#i-lock"/></svg><p>Скоро</p>';
+        ui.galleryGrid.appendChild(empty);
+        return;
+    }
     const wing = galleryPage;
     if (sheet) {
         if (wing === 1) sheet.textContent = "Мастерская 1";
         else if (wing === 2) {
             sheet.textContent = workshop2Open() ? "Мастерская 2" : "Мастерская 2 · после первой";
-        } else sheet.textContent = "Мастерская 3 · скоро";
+        } else if (wing === 3) {
+            sheet.textContent = workshop3Open() ? "Мастерская 3" : "Мастерская 3 · после второй";
+        } else if (wing === 4) sheet.textContent = "Хэллоуин";
     }
     LEVELS.forEach((level, index) => {
         if (wingOf(level) !== wing) return;
         const done = save.completed.includes(level.id);
-        const coming = wingOf(level) >= 3 && !isDev();
+        const coming = false;
         const open = isUnlocked(index);
         const card = document.createElement("div");
         card.className = `gallery-card${open ? "" : " locked"}${done ? " done" : ""}`;
@@ -664,7 +761,10 @@ function startLevel(index, { daily = false, calIso = "", back } = {}) {
     state.dailyMode = Boolean(daily);
     state.calIso = daily ? (calIso || todayIso()) : "";
     if (state.calIso) overlayBack = back || "bonus";
-    else overlayBack = back || "menu";
+    else if (!daily && wingOf(level) === 4) {
+        overlayBack = back || "gallery";
+        galleryPage = 4;
+    } else overlayBack = back || "menu";
     state.mosaic = level.pieces.map((p) => ({
         color: p.color,
         w: p.w,
@@ -699,6 +799,10 @@ function startLevel(index, { daily = false, calIso = "", back } = {}) {
     }
     state.deck = pile;
     render();
+    requestAnimationFrame(() => {
+        fitPlayMosaic();
+        renderStacks();
+    });
     if (screen === "play") platform.gameplayStart();
 }
 
@@ -824,6 +928,7 @@ function render() {
     ui.mute.classList.toggle("is-muted", save.mute);
     ui.mute.setAttribute("aria-label", save.mute ? "Включить звук" : "Выключить звук");
     renderMosaic();
+    fitPlayMosaic();
     renderStacks();
     renderHand();
 }
@@ -937,7 +1042,7 @@ function finishLevel() {
     const id = level.id;
     const first = !save.completed.includes(id);
     if (!state.dailyMode && first) save.completed.push(id);
-    if (!state.dailyMode && wingOf(level) < 3) {
+    if (!state.dailyMode && wingOf(level) < 4) {
         save.unlocked = Math.max(save.unlocked, Math.min(state.levelIndex + 1, lastPlayableIndex()));
     }
     const moves = state.moves;
@@ -1226,12 +1331,17 @@ function checkWin() {
     if (!state.mosaic.every((c) => c.filled)) return;
     state.won = true;
     browsingRanks = false;
-    overlayBack = state.dailyMode ? (overlayBack || "menu") : "menu";
+    if (state.dailyMode) overlayBack = overlayBack || "menu";
+    else if (wingOf(currentLevel()) === 4) overlayBack = overlayBack || "gallery";
+    else overlayBack = "menu";
     const result = finishLevel();
     platform.gameplayStop();
     ui.frame.classList.add("complete");
-    const last = !state.dailyMode && state.levelIndex >= lastPlayableIndex();
+    const nxt = nextAfterWin();
+    const last = !state.dailyMode && nxt === null;
+    const hw = !state.dailyMode && wingOf(currentLevel()) === 4;
     const openedWing2 = !state.dailyMode && wingOf(currentLevel()) === 1 && workshop2Open();
+    const openedWing3 = !state.dailyMode && currentLevel().id === "aurora" && workshop3Open();
     const bits = [`+${REWARD} монет`];
     if (result.bonus) bits.push(`+${result.bonus} бонус`);
     if (state.dailyMode) {
@@ -1248,14 +1358,36 @@ function checkWin() {
             retryText: "Улучшить результат",
             caption: "Рейтинг картины дня"
         });
+    } else if (hw) {
+        fillWinSheet({
+            title: last ? "Хэллоуин собран!" : "Картина готова!",
+            copy: last
+                ? "Все хэллоуинские картины можно снова открыть в галерее."
+                : "Мозаика собрана. В галерее лист «Хэл».",
+            movesText: result.record
+                ? `Новый рекорд: ${formatMoves(result.moves)}`
+                : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
+            clean: result.clean,
+            stars: result.stars,
+            rewardText: bits.join(" · "),
+            claimText: "Забрать награду",
+            retryText: "Ещё раз эту картину",
+            caption: "Рейтинг картины"
+        });
     } else {
         fillWinSheet({
-            title: last ? "Королевство полно!" : (openedWing2 && currentLevel().id === "night" ? "Мастерская 1 готова!" : "Картина готова!"),
+            title: last
+                ? "Королевство полно!"
+                : (openedWing3
+                    ? "Мастерская 2 готова!"
+                    : (openedWing2 && currentLevel().id === "night" ? "Мастерская 1 готова!" : "Картина готова!")),
             copy: last
                 ? "Все картины собраны. Их можно снова открыть в галерее."
-                : (openedWing2 && currentLevel().id === "night"
-                    ? "Вторая мастерская открыта в галерее."
-                    : "Мозаика собрана и повешена в галерею."),
+                : (openedWing3
+                    ? "Третья мастерская открыта в галерее."
+                    : (openedWing2 && currentLevel().id === "night"
+                        ? "Вторая мастерская открыта в галерее."
+                        : "Мозаика собрана и повешена в галерею.")),
             movesText: result.record
                 ? `Новый рекорд: ${formatMoves(result.moves)}`
                 : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
@@ -1535,12 +1667,13 @@ async function claimReward() {
         persist();
         ui.coins.textContent = String(save.coins);
         renderMenu();
-        const last = state.dailyMode ? false : state.levelIndex >= lastPlayableIndex();
-        ui.claim.textContent = state.dailyMode || last ? "В меню" : "Следующая картина";
+        const nxt = nextAfterWin();
+        ui.claim.textContent = state.dailyMode || !nxt ? "В меню" : "Следующая картина";
         beep(700, 0.12);
         return;
     }
-    if (state.dailyMode || state.levelIndex >= lastPlayableIndex()) {
+    const nxt = nextAfterWin();
+    if (state.dailyMode || !nxt) {
         closeWinSheet();
         return;
     }
@@ -1549,7 +1682,7 @@ async function claimReward() {
         await runAd("interstitial");
     }
     ui.claim.disabled = false;
-    startLevel(state.levelIndex + 1);
+    startLevel(nxt);
 }
 
 ui.stacks.addEventListener("click", (e) => {
@@ -1637,6 +1770,18 @@ $("gallery-page-2").addEventListener("click", () => {
 $("gallery-page-3").addEventListener("click", () => {
     galleryPage = 3;
     renderGallery();
+});
+$("gallery-page-hw").addEventListener("click", () => {
+    galleryPage = 4;
+    renderGallery();
+});
+$("gallery-page-soon").addEventListener("click", () => {
+    galleryPage = 5;
+    renderGallery();
+});
+$("hw-banner")?.addEventListener("click", () => {
+    galleryPage = 4;
+    showScreen("gallery");
 });
 $("howto-play").addEventListener("click", () => enterPlay(nextPlayIndex(), { fromHowto: true }));
 $("news-close").addEventListener("click", closeNews);
@@ -1768,6 +1913,14 @@ if (new URLSearchParams(location.search).has("shot")) {
         },
         gallery3() {
             galleryPage = 3;
+            showScreen("gallery");
+        },
+        halloween() {
+            galleryPage = 4;
+            showScreen("gallery");
+        },
+        soon() {
+            galleryPage = 5;
             showScreen("gallery");
         },
         october() {

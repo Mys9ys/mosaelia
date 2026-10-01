@@ -105,7 +105,8 @@ body {
     justify-content: center;
     align-items: center;
     gap: 8px 14px;
-    margin: -6px 0 12px;
+    margin: 0 0 12px;
+    padding: 4px 8px;
 }
 
 .dev-panel[hidden] {
@@ -161,6 +162,45 @@ body {
     font-size: 12px;
     font-weight: 700;
     color: var(--coral);
+}
+
+.hw-banner {
+    appearance: none;
+    border: 0;
+    margin-top: 14px;
+    width: min(100%, 360px);
+    padding: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    background: #2b2440;
+    box-shadow: 0 8px 18px rgba(42, 24, 16, 0.22);
+    text-align: left;
+    font: inherit;
+    color: #fff8ee;
+}
+
+.hw-banner img {
+    display: block;
+    width: 100%;
+    height: 92px;
+    object-fit: cover;
+    object-position: 50% 40%;
+}
+
+.hw-banner-copy {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px 10px;
+    background: linear-gradient(180deg, #4a3a68, #2b2440);
+    font-size: 13px;
+}
+
+.hw-banner-copy strong {
+    font-size: 15px;
+    letter-spacing: 0.02em;
 }
 
 .menu-actions {
@@ -432,6 +472,30 @@ body {
 .gallery-cal[hidden],
 .gallery-grid[hidden] {
     display: none !important;
+}
+
+.gallery-soon {
+    grid-column: 1 / -1;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    min-height: 220px;
+}
+
+.gallery-soon .ico,
+.gallery-soon .ico use {
+    width: 42px;
+    height: 42px;
+    color: #9a7a62;
+}
+
+.gallery-soon p {
+    font-size: 16px;
+    font-weight: 800;
 }
 
 .gallery-card {
@@ -859,9 +923,11 @@ body {
 
 .frame {
     position: relative;
-    width: min(100%, 340px);
+    width: max-content;
+    max-width: min(100%, 340px);
     max-height: 100%;
     box-sizing: border-box;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background:
@@ -891,7 +957,8 @@ body {
     position: relative;
     z-index: 1;
     min-height: 0;
-    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -903,13 +970,15 @@ body {
     background: #23160f;
     border-radius: 4px;
     padding: 0;
-    width: 100%;
+    width: auto;
     height: auto;
+    max-width: 100%;
     max-height: 100%;
     aspect-ratio: var(--cols, 5) / var(--rows, 4);
     grid-template-columns: repeat(var(--cols, 5), 1fr);
     grid-template-rows: repeat(var(--rows, 4), 1fr);
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .cell {
