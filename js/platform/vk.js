@@ -65,8 +65,16 @@ export function createVk() {
                 }
                 bridge.subscribe((event) => {
                     const type = event?.detail?.type;
+                    const data = event?.detail?.data || {};
                     if (type === "VKWebAppViewHide" || type === "VKWebAppPause") firePause();
                     if (type === "VKWebAppViewRestore" || type === "VKWebAppResume") fireResume();
+                    if (type === "VKWebAppUpdateConfig") {
+                        const insets = data.insets || data.safe_area_insets || {};
+                        const top = Number(insets.top) || 0;
+                        const bottom = Number(insets.bottom) || 0;
+                        document.documentElement.style.setProperty("--vk-top", `${top}px`);
+                        document.documentElement.style.setProperty("--vk-bottom", `${bottom}px`);
+                    }
                 });
             } catch (err) {
                 console.warn("VK Bridge недоступен, сейв локальный", err);

@@ -8,7 +8,7 @@
     <title>Мозаэлия</title>
     <!-- Yandex Games SDK -->
     <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=33">
+    <link rel="stylesheet" href="css/game.css?v=44">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
@@ -28,11 +28,19 @@
         <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zM12 3.2v2.2M12 18.6v2.2M3.2 12h2.2M18.6 12h2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></g></symbol>
         <symbol id="i-frame" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5zM8 8h8v8H8z"/></g></symbol>
         <symbol id="i-leaf" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18.6 5.4C12.2 5.6 6.4 10 6.2 16.8c3.2.4 6.4-1 8.6-3.2 2.4-2.4 3.8-5.4 3.8-8.2zM8.2 15.6c2.2-4.2 6-7.4 10.4-8.8"/></g></symbol>
+        <symbol id="i-bars" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4.2" y="13.2" width="4.4" height="6.6" rx="1.1"/><rect x="9.8" y="5.4" width="4.4" height="14.4" rx="1.1"/><rect x="15.4" y="9.2" width="4.4" height="10.6" rx="1.1"/></g></symbol>
+        <symbol id="i-ad" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.2" y="6.2" width="15.6" height="11.6" rx="2.2"/><path d="M10.2 9.4v5.2L15.4 12z" fill="currentColor" stroke="none"/></g></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"/></g></symbol>
     </svg>
     <div id="app">
         <section class="screen active" id="screen-menu" aria-label="Главное меню">
             <div class="menu-hero">
                 <div class="mark" id="dev-mark">Королевство мозаик</div>
+                <div class="dev-panel" id="dev-panel" hidden>
+                    <a class="dev-stats" id="dev-stats" href="https://mosaelia.ru/stats/?k=ms2026" target="_blank" rel="noopener">Статистика</a>
+                    <button class="dev-text-btn" id="dev-reset" type="button">Сброс</button>
+                    <button class="dev-text-btn" id="dev-off" type="button">Выйти</button>
+                </div>
                 <h1>Мозаэлия</h1>
                 <p class="menu-lead">Собирай плитки, проявляй картины, обживай мастерские.</p>
                 <div class="menu-progress">
@@ -50,13 +58,8 @@
                 <p class="menu-daily" id="daily-meta"></p>
                 <button class="secondary" id="howto-btn" type="button">Как играть</button>
                 <button class="secondary" id="gallery-btn" type="button">Галерея</button>
+                <button class="secondary" id="bonus-btn" type="button">Бонусные</button>
                 <button class="secondary" id="shop-btn" type="button">Рамки</button>
-                <div class="dev-panel" id="dev-panel" hidden>
-                    <p class="dev-label">Режим мастера</p>
-                    <p class="dev-meta" id="dev-platform"></p>
-                    <button class="secondary" id="dev-reset" type="button">Сбросить прогресс</button>
-                    <button class="ghost-btn" id="dev-off" type="button">Выключить мастер</button>
-                </div>
             </div>
         </section>
 
@@ -109,6 +112,28 @@
             <nav class="gallery-pager" aria-label="Листы галереи">
                 <button type="button" class="gallery-page on" id="gallery-page-1">1</button>
                 <button type="button" class="gallery-page" id="gallery-page-2">2</button>
+                <button type="button" class="gallery-page" id="gallery-page-3">3</button>
+            </nav>
+        </section>
+
+        <section class="screen" id="screen-bonus" aria-label="Бонусные картины">
+            <header class="hud">
+                <button class="icon-btn" id="bonus-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
+                <div class="titles titles-pill">
+                    <div class="brand">Бонусные</div>
+                    <div class="level-name" id="bonus-sheet">Октябрь 2026</div>
+                </div>
+                <span class="hud-spacer"></span>
+            </header>
+            <div class="gallery-cal" id="gallery-cal">
+                <p class="cal-lead">Картины месяца. Пропуск можно открыть за ролик.</p>
+                <div class="cal-week" aria-hidden="true">
+                    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+            </div>
+            <nav class="gallery-pager" aria-label="Месяцы">
+                <button type="button" class="gallery-page wide on" id="bonus-month-oct">Окт</button>
             </nav>
         </section>
 
@@ -226,6 +251,23 @@
         </div>
 
         <div class="toast" id="toast"></div>
+        <div class="overlay news-overlay" id="news" aria-label="Что нового">
+            <div class="sheet news-sheet">
+                <button class="news-close" id="news-close" type="button" aria-label="Закрыть">
+                    <svg class="ico"><use href="#i-close"/></svg>
+                </button>
+                <p class="news-kicker">Обновление</p>
+                <h2>Что нового</h2>
+                <p>Для тех, кто уже заходил — коротко, что добавили.</p>
+                <ul class="news-list">
+                    <li><strong>Картина дня.</strong> Каждый день своя мозаика и рейтинг по ходам.</li>
+                    <li><strong>Бонусные.</strong> Октябрьский календарь: сегодня открыто, пропуск — за ролик.</li>
+                    <li><strong>Рамки.</strong> Косметика за монеты, на игру не влияет.</li>
+                    <li><strong>Вторая мастерская.</strong> Ещё 18 картин после первой.</li>
+                </ul>
+                <button class="primary" id="news-ok" type="button">Понятно</button>
+            </div>
+        </div>
     </div>
     <div class="overlay ad-overlay" id="ad-overlay">
         <div class="sheet ad-sheet">
@@ -236,6 +278,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=31"></script>
+    <script type="module" src="js/game.js?v=44"></script>
 </body>
 </html>

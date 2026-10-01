@@ -28,6 +28,8 @@ $relFiles = @(
     "js/game.js",
     "js/levels.js",
     "js/frames.js",
+    "js/calendar.js",
+    "js/october.js",
     "js/stats.js",
     "js/stats-config.js",
     "js/platform/index.js",

@@ -1,5 +1,7 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=31";
-import { FRAMES } from "./frames.js?v=31";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=44";
+import { FRAMES } from "./frames.js?v=44";
+import { OCT_LEVELS } from "./october.js?v=44";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=44";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
 
@@ -13,6 +15,8 @@ const WAND_MAX = 2;
 const REWARD = 50;
 const CLEAN_BONUS = 25;
 const DAILY_BONUS = 20;
+const AD_HELP_MAX = 3;
+const NEWS_ID = "2026-10-01";
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
 const platform = await createPlatform();
@@ -24,6 +28,7 @@ const ui = {
         menu: $("screen-menu"),
         howto: $("screen-howto"),
         gallery: $("screen-gallery"),
+        bonus: $("screen-bonus"),
         shop: $("screen-shop"),
         play: $("screen-play")
     },
@@ -69,11 +74,15 @@ const ui = {
     galleryGrid: $("gallery-grid"),
     gallerySheet: $("gallery-sheet"),
     galleryPage1: $("gallery-page-1"),
-    galleryPage2: $("gallery-page-2")
+    galleryPage2: $("gallery-page-2"),
+    galleryPage3: $("gallery-page-3")
 };
 
 let galleryPage = 1;
 let pendingDaily = false;
+let pendingCalIso = "";
+let overlayBack = "menu";
+let browsingRanks = false;
 let stackFit = { shown: STACK_VISIBLE, peek: 18 };
 
 function readTilePx() {
@@ -94,6 +103,11 @@ function measureStackFit() {
     const peek = (inner - tile) / (STACK_VISIBLE - 1);
     stackFit = { shown: STACK_VISIBLE, peek };
     return stackFit;
+}
+
+function syncViewport() {
+    const h = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+    if (h > 40) document.documentElement.style.setProperty("--app-h", `${h}px`);
 }
 
 let tileSeq = 1;
@@ -124,7 +138,12 @@ function defaultSave() {
         dailyBest: 0,
         dailyLevel: "",
         dailyStars: 0,
-        dailyClean: false
+        dailyClean: false,
+        calDays: {},
+        calAds: {},
+        adHelpDate: "",
+        adHelps: 0,
+        seenNews: ""
     };
 }
 
@@ -148,6 +167,7 @@ const state = {
     usedShuffle: false,
     usedWand: false,
     dailyMode: false,
+    calIso: "",
     payout: REWARD
 };
 
@@ -180,9 +200,11 @@ function isDev() {
 }
 
 function isUnlocked(index) {
+    const level = LEVELS[index];
+    if (wingOf(level) >= 3) return isDev();
     return isDev()
         || index <= save.unlocked
-        || save.completed.includes(LEVELS[index]?.id);
+        || save.completed.includes(level?.id);
 }
 
 function wingOf(level) {
@@ -193,21 +215,88 @@ function workshop2Open() {
     return isDev() || LEVELS.filter((level) => wingOf(level) === 1).every((level) => save.completed.includes(level.id));
 }
 
+function playableLevels() {
+    return LEVELS.filter((level) => wingOf(level) < 3);
+}
+
+function lastPlayableIndex() {
+    let last = 0;
+    LEVELS.forEach((level, i) => {
+        if (wingOf(level) < 3) last = i;
+    });
+    return last;
+}
+
 function moscowDateKey() {
-    const d = new Date(Date.now() + 3 * 3600 * 1000);
-    return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+    return todayIso();
 }
 
 function dailyLevelIndex() {
-    const pool = workshop2Open() ? LEVELS : LEVELS.filter((level) => wingOf(level) === 1);
-    const key = moscowDateKey();
-    let h = 2166136261;
-    for (const ch of key) {
-        h ^= ch.charCodeAt(0);
-        h = Math.imul(h, 16777619);
+    return octIndexForIso(todayIso(), OCT_LEVELS.length);
+}
+
+function currentLevel() {
+    const pack = state.dailyMode ? OCT_LEVELS : LEVELS;
+    const i = Math.max(0, Math.min(state.levelIndex, pack.length - 1));
+    return pack[i];
+}
+
+function calRecord(iso) {
+    return save.calDays?.[iso] || null;
+}
+
+function calAdOpen(iso) {
+    return Boolean(save.calAds?.[iso]);
+}
+
+function calStatus(iso) {
+    const today = todayIso();
+    if (calRecord(iso)?.moves) return "done";
+    if (iso > today) return isDev() ? "open" : "future";
+    if (iso === today) return "today";
+    if (calAdOpen(iso) || isDev()) return "open";
+    return "missed";
+}
+
+function dailyDoneToday() {
+    const today = todayIso();
+    return Boolean(calRecord(today)?.moves) || (save.dailyDate === today && Number(save.dailyBest) > 0);
+}
+
+function syncAdHelps() {
+    const today = todayIso();
+    if (save.adHelpDate !== today) {
+        save.adHelpDate = today;
+        save.adHelps = 0;
+        persist();
     }
-    const pick = pool[(h >>> 0) % pool.length];
-    return Math.max(0, LEVELS.findIndex((level) => level.id === pick.id));
+    return readCount(save.adHelps, 0);
+}
+
+function adHelpsLeft() {
+    return Math.max(0, AD_HELP_MAX - syncAdHelps());
+}
+
+function adHelpBlocked() {
+    return adHelpsLeft() <= 0;
+}
+
+function paintUses(el, count, { hidden = false, wantAd = false } = {}) {
+    if (!el) return;
+    if (hidden) {
+        el.hidden = true;
+        return;
+    }
+    el.hidden = false;
+    if (count > 0) {
+        el.classList.remove("uses-ico");
+        el.textContent = String(count);
+        return;
+    }
+    el.classList.add("uses-ico");
+    el.innerHTML = wantAd && !adHelpBlocked()
+        ? '<svg class="ico"><use href="#i-ad"/></svg>'
+        : '<svg class="ico"><use href="#i-ad-off"/></svg>';
 }
 
 function ownedFrames() {
@@ -229,26 +318,50 @@ function applyFrameSkin(el) {
     el.classList.add(`skin-${currentFrame()}`);
 }
 
-function dailyDoneToday() {
-    return save.dailyDate === moscowDateKey() && Number(save.dailyBest) > 0;
-}
-
 function setDev(on, { silent = false } = {}) {
     save.dev = on;
     persist();
     renderMenu();
     if (screen === "gallery") renderGallery();
+    if (screen === "bonus") renderCalendar();
     if (!silent) {
         toast(on ? "Режим мастера: все картины открыты" : "Режим мастера выключен");
     }
 }
 
+function isReturner() {
+    return Boolean(save.seenHowto)
+        || Number(save.unlocked) > 0
+        || (Array.isArray(save.completed) && save.completed.length > 0)
+        || Number(save.coins) > 0;
+}
+
+function maybeShowNews() {
+    const news = $("news");
+    if (!news) return;
+    if (new URLSearchParams(location.search).has("shot")) return;
+    if (save.seenNews === NEWS_ID || !isReturner()) {
+        news.classList.remove("show");
+        return;
+    }
+    news.classList.add("show");
+}
+
+function closeNews() {
+    save.seenNews = NEWS_ID;
+    persist();
+    $("news")?.classList.remove("show");
+}
+
 function nextPlayIndex() {
-    if (save.completed.length >= LEVELS.length) return 0;
-    for (let i = 0; i <= save.unlocked && i < LEVELS.length; i++) {
+    const last = lastPlayableIndex();
+    const playable = playableLevels();
+    if (playable.every((level) => save.completed.includes(level.id))) return 0;
+    for (let i = 0; i <= save.unlocked && i <= last; i++) {
+        if (wingOf(LEVELS[i]) >= 3) continue;
         if (!save.completed.includes(LEVELS[i].id)) return i;
     }
-    return Math.min(save.unlocked, LEVELS.length - 1);
+    return Math.min(save.unlocked, last);
 }
 
 function showScreen(name) {
@@ -257,38 +370,46 @@ function showScreen(name) {
     Object.entries(ui.screens).forEach(([key, el]) => {
         el.classList.toggle("active", key === name);
     });
-    if (name === "menu") renderMenu();
+    if (name === "menu") {
+        renderMenu();
+        maybeShowNews();
+    } else {
+        $("news")?.classList.remove("show");
+    }
     if (name === "gallery") renderGallery();
+    if (name === "bonus") renderCalendar();
     if (name === "shop") renderShop();
     if (name === "play" && !state.won) platform.gameplayStart();
     else platform.gameplayStop();
 }
 
 function renderMenu() {
-    const done = save.completed.length;
+    const playable = playableLevels();
+    const donePlay = save.completed.filter((id) => playable.some((level) => level.id === id)).length;
     ui.menuProgress.textContent = isDev()
-        ? `Мастер · ${done} / ${LEVELS.length}`
-        : `Картины ${done} / ${LEVELS.length}`;
+        ? `Мастер · ${save.completed.length} / ${LEVELS.length}`
+        : `Картины ${donePlay} / ${playable.length}`;
     ui.menuCoins.textContent = String(save.coins);
-    const daily = LEVELS[dailyLevelIndex()];
+    const today = todayIso();
+    const daily = OCT_LEVELS[dailyLevelIndex()];
+    const { m, day } = moscowParts();
     const dailyEl = $("daily-meta");
     const dailyBtn = $("daily-btn");
-    if (dailyBtn) {
-        dailyBtn.textContent = dailyDoneToday() ? "Результат дня" : "Картина дня";
-    }
+    if (dailyBtn) dailyBtn.textContent = dailyDoneToday() ? "Результат дня" : "Картина дня";
     if (dailyEl) {
         dailyEl.textContent = dailyDoneToday()
-            ? `Сегодня: ${daily.title} · ${formatMoves(save.dailyBest)}`
-            : `Сегодня: ${daily.title}`;
+            ? `${day} ${MONTHS_RU[m - 1].toLowerCase()} · ${daily.title} · ${formatMoves(calRecord(today)?.moves || save.dailyBest)}`
+            : `Сегодня ${day} · ${daily.title}`;
     }
     const nxt = nextPlayIndex();
-    const allDone = done >= LEVELS.length;
+    const allDone = playable.every((level) => save.completed.includes(level.id));
     ui.playBtn.textContent = allDone
         ? "Играть снова"
-        : (done === 0 ? "Играть" : `Продолжить · ${LEVELS[nxt].title}`);
+        : (donePlay === 0 ? "Играть" : `Продолжить · ${LEVELS[nxt].title}`);
     $("dev-panel").hidden = !isDev();
     $("dev-mark").classList.toggle("dev-on", isDev());
-    $("dev-platform").textContent = `Площадка: ${platform.id}`;
+    const stats = $("dev-stats");
+    if (stats) stats.href = "https://mosaelia.ru/stats/?k=ms2026";
     const chip = $("platform-chip");
     const forced = new URLSearchParams(location.search).has("platform");
     chip.hidden = !(isDev() || forced);
@@ -318,23 +439,28 @@ function miniMosaic(level, filled) {
 function renderGallery() {
     ui.galleryGrid.replaceChildren();
     const sheet = $("gallery-sheet");
-    const onFirst = galleryPage === 1;
-    ui.galleryPage1?.classList.toggle("on", onFirst);
-    ui.galleryPage2?.classList.toggle("on", !onFirst);
-    const wing = onFirst ? 1 : 2;
+    if (galleryPage > 3) galleryPage = 1;
+    ui.galleryPage1?.classList.toggle("on", galleryPage === 1);
+    ui.galleryPage2?.classList.toggle("on", galleryPage === 2);
+    ui.galleryPage3?.classList.toggle("on", galleryPage === 3);
+    const wing = galleryPage;
     if (sheet) {
-        sheet.textContent = wing === 1
-            ? "Мастерская 1"
-            : (workshop2Open() ? "Мастерская 2" : "Мастерская 2 · после первой");
+        if (wing === 1) sheet.textContent = "Мастерская 1";
+        else if (wing === 2) {
+            sheet.textContent = workshop2Open() ? "Мастерская 2" : "Мастерская 2 · после первой";
+        } else sheet.textContent = "Мастерская 3 · скоро";
     }
     LEVELS.forEach((level, index) => {
         if (wingOf(level) !== wing) return;
         const done = save.completed.includes(level.id);
+        const coming = wingOf(level) >= 3 && !isDev();
         const open = isUnlocked(index);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = `gallery-card${open ? "" : " locked"}${done ? " done" : ""}`;
-        btn.disabled = !open;
+        const card = document.createElement("div");
+        card.className = `gallery-card${open ? "" : " locked"}${done ? " done" : ""}`;
+        const play = document.createElement("button");
+        play.type = "button";
+        play.className = "gallery-play";
+        play.disabled = !open;
         const frame = document.createElement("div");
         frame.className = "gallery-frame";
         applyFrameSkin(frame);
@@ -356,20 +482,33 @@ function renderGallery() {
         const n = LEVELS.filter((item) => wingOf(item) < wing).length;
         const title = document.createElement("div");
         title.className = "gallery-title";
-        title.textContent = open ? `${index - n + 1}. ${level.title}` : "Закрыто";
-        btn.append(frame, title);
+        title.textContent = coming ? "Скоро" : (open ? `${index - n + 1}. ${level.title}` : "Закрыто");
+        play.append(frame, title);
         const best = save.bestMoves?.[level.id];
-        if (open && best) {
-            const meta = document.createElement("div");
-            meta.className = "gallery-meta";
-            const stars = save.bestStars?.[level.id] || starsFor(best, parFor(level));
-            meta.textContent = `${formatMoves(best)} · ${stars} из 3`;
-            btn.append(meta);
-        }
         if (open) {
-            btn.addEventListener("click", () => enterPlay(index));
+            play.addEventListener("click", () => enterPlay(index));
         }
-        ui.galleryGrid.appendChild(btn);
+        card.append(play);
+        if (open) {
+            const foot = document.createElement("div");
+            foot.className = "gallery-foot";
+            if (best) {
+                const meta = document.createElement("span");
+                meta.className = "gallery-meta";
+                const stars = save.bestStars?.[level.id] || starsFor(best, parFor(level));
+                meta.textContent = `${formatMoves(best)} · ${stars} из 3`;
+                foot.append(meta);
+            }
+            const rankBtn = document.createElement("button");
+            rankBtn.type = "button";
+            rankBtn.className = "gallery-rank-btn";
+            rankBtn.setAttribute("aria-label", `Рейтинг: ${level.title}`);
+            rankBtn.innerHTML = '<svg class="ico"><use href="#i-bars"/></svg>';
+            rankBtn.addEventListener("click", () => showPictureRanks(index));
+            foot.append(rankBtn);
+            card.append(foot);
+        }
+        ui.galleryGrid.appendChild(card);
     });
 }
 
@@ -419,8 +558,10 @@ function renderShop() {
     });
 }
 
-function enterPlay(index, { fromHowto = false, daily = false } = {}) {
+function enterPlay(index, { fromHowto = false, daily = false, calIso = "", back } = {}) {
     if (daily) pendingDaily = true;
+    if (calIso) pendingCalIso = calIso;
+    if (back) overlayBack = back;
     if (!fromHowto && !save.seenHowto) {
         showScreen("howto");
         return;
@@ -430,10 +571,16 @@ function enterPlay(index, { fromHowto = false, daily = false } = {}) {
         persist();
     }
     const useDaily = pendingDaily;
+    const iso = pendingCalIso || (useDaily ? todayIso() : "");
     pendingDaily = false;
-    const idx = useDaily ? dailyLevelIndex() : index;
+    pendingCalIso = "";
+    const idx = iso ? octIndexForIso(iso, OCT_LEVELS.length) : index;
+    if (!iso && !isUnlocked(idx)) {
+        toast("Этот лист ещё закрыт");
+        return;
+    }
     showScreen("play");
-    startLevel(idx, { daily: useDaily });
+    startLevel(idx, { daily: useDaily, calIso: iso, back: back || overlayBack });
 }
 
 function shuffle(list, rand = Math.random) {
@@ -461,7 +608,8 @@ function cloneRun() {
         moves: state.moves,
         usedShuffle: state.usedShuffle,
         usedWand: state.usedWand,
-        dailyMode: state.dailyMode
+        dailyMode: state.dailyMode,
+        calIso: state.calIso
     }));
 }
 
@@ -508,11 +656,15 @@ function topMatch(pile) {
     return a.color === b.color && b.color === c.color;
 }
 
-function startLevel(index, { daily = false } = {}) {
-    const safe = Math.max(0, Math.min(index, LEVELS.length - 1));
-    const level = LEVELS[safe];
+function startLevel(index, { daily = false, calIso = "", back } = {}) {
+    const pack = daily ? OCT_LEVELS : LEVELS;
+    const safe = Math.max(0, Math.min(index, pack.length - 1));
+    const level = pack[safe];
     state.levelIndex = safe;
     state.dailyMode = Boolean(daily);
+    state.calIso = daily ? (calIso || todayIso()) : "";
+    if (state.calIso) overlayBack = back || "bonus";
+    else overlayBack = back || "menu";
     state.mosaic = level.pieces.map((p) => ({
         color: p.color,
         w: p.w,
@@ -567,7 +719,7 @@ function tileNode(tile, extraClass = "") {
 }
 
 function renderMosaic() {
-    const level = LEVELS[state.levelIndex];
+    const level = currentLevel();
     ui.mosaic.style.setProperty("--cols", String(level.cols));
     ui.mosaic.style.setProperty("--rows", String(level.rows));
     ui.mosaic.style.gridTemplateColumns = `repeat(${level.cols}, 1fr)`;
@@ -633,10 +785,12 @@ function renderHand() {
 }
 
 function render() {
-    const level = LEVELS[state.levelIndex];
-    ui.levelName.textContent = state.dailyMode
-        ? `Картина дня · ${level.title}`
-        : `Картина ${state.levelIndex + 1} · ${level.title}`;
+    const level = currentLevel();
+    ui.levelName.textContent = state.calIso
+        ? `${Number(state.calIso.slice(-2))} ${MONTHS_RU[Number(state.calIso.slice(5, 7)) - 1].toLowerCase()} · ${level.title}`
+        : (state.dailyMode
+            ? `Картина дня · ${level.title}`
+            : `Картина ${state.levelIndex + 1} · ${level.title}`);
     applyFrameSkin(ui.frame);
     ui.coins.textContent = String(save.coins);
     if (ui.moves) ui.moves.textContent = String(state.moves);
@@ -646,19 +800,25 @@ function render() {
     ui.deck.classList.toggle("empty", state.deck.length === 0);
     ui.deckCount.textContent = String(state.deck.length);
     ui.deck.disabled = busy || state.won || state.deck.length === 0 || Boolean(state.hand);
-    ui.shuffleUses.textContent = state.shuffles > 0 ? String(state.shuffles) : "▶";
-    ui.undoUses.textContent = state.undos > 0 ? String(state.undos) : "▶";
-    ui.wandUses.textContent = state.wands > 0 ? String(state.wands) : "▶";
-    ui.shuffle.classList.toggle("booster-ad", state.shuffles <= 0);
-    ui.undo.classList.toggle("booster-ad", state.undos <= 0);
-    ui.wand.classList.toggle("booster-ad", state.wands <= 0);
-    ui.extra.classList.toggle("booster-ad", state.extraUsed && !state.extraAdUsed);
-    ui.extraUses.hidden = state.extraUsed && state.extraAdUsed;
-    ui.extraUses.textContent = state.extraUsed
-        ? (state.extraAdUsed ? "" : "▶")
-        : "1";
+    const adWait = adHelpBlocked();
+    const shuffleAd = state.shuffles <= 0;
+    const undoAd = state.undos <= 0;
+    const wandAd = state.wands <= 0;
+    const extraAd = state.extraUsed && !state.extraAdUsed;
+    paintUses(ui.shuffleUses, state.shuffles, { wantAd: shuffleAd });
+    paintUses(ui.undoUses, state.undos, { wantAd: undoAd });
+    paintUses(ui.wandUses, state.wands, { wantAd: wandAd });
+    paintUses(ui.extraUses, extraAd ? 0 : 1, { hidden: state.extraUsed && state.extraAdUsed, wantAd: extraAd });
+    ui.shuffle.classList.toggle("booster-ad", shuffleAd && !adWait);
+    ui.undo.classList.toggle("booster-ad", undoAd && !adWait);
+    ui.wand.classList.toggle("booster-ad", wandAd && !adWait);
+    ui.extra.classList.toggle("booster-ad", extraAd && !adWait);
+    ui.shuffle.classList.toggle("booster-wait", shuffleAd && adWait);
+    ui.undo.classList.toggle("booster-wait", undoAd && adWait);
+    ui.wand.classList.toggle("booster-wait", wandAd && adWait);
+    ui.extra.classList.toggle("booster-wait", extraAd && adWait);
     ui.shuffle.disabled = busy || state.won || paused;
-    ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length);
+    ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length && !undoAd);
     ui.wand.disabled = busy || state.won || paused;
     ui.extra.disabled = busy || state.won || paused || (state.extraUsed && state.extraAdUsed);
     ui.mute.classList.toggle("is-muted", save.mute);
@@ -773,13 +933,12 @@ function paintWinStars(count) {
 }
 
 function finishLevel() {
-    const level = LEVELS[state.levelIndex];
+    const level = currentLevel();
     const id = level.id;
     const first = !save.completed.includes(id);
-    if (first) save.completed.push(id);
-    const gatedDaily = state.dailyMode && state.levelIndex > save.unlocked;
-    if (!gatedDaily) {
-        save.unlocked = Math.max(save.unlocked, Math.min(state.levelIndex + 1, LEVELS.length - 1));
+    if (!state.dailyMode && first) save.completed.push(id);
+    if (!state.dailyMode && wingOf(level) < 3) {
+        save.unlocked = Math.max(save.unlocked, Math.min(state.levelIndex + 1, lastPlayableIndex()));
     }
     const moves = state.moves;
     const par = parFor(level);
@@ -799,19 +958,25 @@ function finishLevel() {
     } else if (clean) {
         save.cleanRuns[id] = true;
     }
-    const today = moscowDateKey();
+    const today = todayIso();
     if (state.dailyMode) {
-        const firstToday = save.dailyDate !== today;
-        if (firstToday) {
-            save.dailyDate = today;
-            save.dailyBest = moves;
-            bonus += DAILY_BONUS;
-        } else if (!save.dailyBest || moves < save.dailyBest) {
-            save.dailyBest = moves;
+        const iso = state.calIso || today;
+        if (!save.calDays) save.calDays = {};
+        const prevDay = save.calDays[iso];
+        const firstDay = !prevDay?.moves;
+        if (firstDay) bonus += DAILY_BONUS;
+        if (!prevDay?.moves || moves < prevDay.moves) {
+            save.calDays[iso] = { moves, stars, clean, level: id };
+        } else if (clean && !prevDay.clean) {
+            save.calDays[iso] = { ...prevDay, clean: true, stars: Math.max(prevDay.stars || 0, stars) };
         }
-        save.dailyLevel = id;
-        save.dailyStars = Math.max(Number(save.dailyStars) || 0, stars);
-        save.dailyClean = firstToday ? clean : Boolean(save.dailyClean) || clean;
+        if (iso === today) {
+            save.dailyDate = today;
+            save.dailyBest = save.calDays[iso].moves;
+            save.dailyLevel = id;
+            save.dailyStars = save.calDays[iso].stars;
+            save.dailyClean = Boolean(save.calDays[iso].clean);
+        }
     }
     state.payout = REWARD + bonus;
     persist();
@@ -874,7 +1039,7 @@ function paintRankList(rows, mine) {
 }
 
 async function loadWinRanks(mine) {
-    const id = LEVELS[state.levelIndex]?.id;
+    const id = currentLevel()?.id;
     const fallback = mine || (state.moves
         ? { moves: state.moves, clean: !state.usedShuffle && !state.usedWand }
         : { moves: save.dailyBest, clean: save.dailyClean });
@@ -888,7 +1053,7 @@ async function loadWinRanks(mine) {
     paintRankList(rows, fallback);
 }
 
-function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimText, retryText, caption }) {
+function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimText, retryText, caption, hideRewards = false }) {
     ui.winTitle.textContent = title;
     ui.winCopy.textContent = copy;
     if (ui.winMoves) ui.winMoves.textContent = movesText;
@@ -899,46 +1064,174 @@ function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimT
     paintWinStars(stars);
     ui.reward.textContent = rewardText;
     ui.claim.textContent = claimText;
+    ui.claim.hidden = hideRewards;
+    const rewards = document.querySelector(".win-rewards");
+    if (rewards) rewards.hidden = hideRewards;
     ui.retry.textContent = retryText;
     if (ui.rankCaption) ui.rankCaption.textContent = caption;
     if (ui.winRank) ui.winRank.hidden = platform.id !== "vk";
     if (ui.winShare) ui.winShare.classList.toggle("show", platform.id === "vk");
 }
 
-function showDailyRecap() {
-    const index = dailyLevelIndex();
+function closeWinSheet() {
+    ui.overlay.classList.remove("show");
+    browsingRanks = false;
+    const back = overlayBack || "menu";
+    if (screen === "play") {
+        if (back === "calendar" || back === "gallery-oct" || back === "bonus") {
+            showScreen("bonus");
+        } else if (back === "gallery") showScreen("gallery");
+        else showScreen("menu");
+    }
+}
+
+function showPictureRanks(index) {
     const level = LEVELS[index];
-    const moves = Number(save.dailyBest) || 0;
+    const moves = Number(save.bestMoves?.[level.id]) || 0;
+    overlayBack = screen === "play" ? "menu" : screen;
+    browsingRanks = true;
     state.levelIndex = index;
-    state.dailyMode = true;
+    state.dailyMode = false;
     state.won = true;
     state.claimed = true;
     state.moves = moves;
-    showScreen("menu");
     fillWinSheet({
-        title: "Результат дня",
-        copy: `«${level.title}» уже собрана. Можно смотреть рейтинг или улучшить ходы.`,
-        movesText: `Твой результат: ${formatMoves(moves)}`,
-        clean: Boolean(save.dailyClean),
-        stars: save.dailyStars || starsFor(moves, parFor(level)),
+        title: level.title,
+        copy: "Общий рейтинг всех игроков. Чем меньше ходов — тем выше место.",
+        movesText: moves ? `Твой лучший: ${formatMoves(moves)}` : "Ещё нет личного результата",
+        clean: Boolean(save.cleanRuns?.[level.id]),
+        stars: Number(save.bestStars?.[level.id]) || 0,
+        rewardText: "",
+        claimText: "Закрыть",
+        retryText: "Играть",
+        caption: "Рейтинг всех игроков",
+        hideRewards: true
+    });
+    if (ui.winRankList) ui.winRankList.replaceChildren();
+    loadWinRanks({
+        moves,
+        clean: Boolean(save.cleanRuns?.[level.id])
+    });
+    ui.overlay.classList.add("show");
+}
+
+function showCalRecap(iso, back = "bonus") {
+    const index = octIndexForIso(iso, OCT_LEVELS.length);
+    const level = OCT_LEVELS[index];
+    const rec = calRecord(iso) || {};
+    const moves = Number(rec.moves) || 0;
+    overlayBack = back;
+    browsingRanks = true;
+    state.levelIndex = index;
+    state.dailyMode = true;
+    state.calIso = iso;
+    state.won = true;
+    state.claimed = true;
+    state.moves = moves;
+    const day = Number(iso.slice(-2));
+    const month = MONTHS_RU[Number(iso.slice(5, 7)) - 1];
+    fillWinSheet({
+        title: level.title,
+        copy: `${day} ${month.toLowerCase()}. Общий рейтинг всех игроков.`,
+        movesText: moves ? `Твой результат: ${formatMoves(moves)}` : "Ещё нет результата",
+        clean: Boolean(rec.clean),
+        stars: rec.stars || starsFor(moves, parFor(level)),
         rewardText: "Награда уже получена",
         claimText: "Закрыть",
         retryText: "Сыграть ещё раз",
-        caption: "Рейтинг картины дня"
+        caption: "Рейтинг всех игроков"
     });
     if (ui.winRankList) ui.winRankList.replaceChildren();
-    loadWinRanks({ moves, clean: save.dailyClean });
+    loadWinRanks({ moves, clean: rec.clean });
     ui.overlay.classList.add("show");
+}
+
+function showDailyRecap() {
+    showCalRecap(todayIso(), "menu");
+}
+
+function renderCalendar() {
+    const grid = $("cal-grid");
+    if (!grid) return;
+    const { y, m } = octMonthParts();
+    const sheet = $("bonus-sheet");
+    if (sheet) sheet.textContent = `${MONTHS_RU[m - 1]} ${y}`;
+    const today = todayIso();
+    const startPad = mondayIndex(y, m, 1);
+    const count = daysInMonth(y, m);
+    grid.replaceChildren();
+    for (let i = 0; i < startPad; i++) {
+        const pad = document.createElement("div");
+        pad.className = "cal-pad";
+        grid.appendChild(pad);
+    }
+    for (let d = 1; d <= count; d++) {
+        const iso = isoDay(y, m, d);
+        const st = calStatus(iso);
+        const level = OCT_LEVELS[octIndexForIso(iso, OCT_LEVELS.length)];
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `cal-day ${st}`;
+        btn.disabled = st === "future";
+        const n = document.createElement("span");
+        n.className = "cal-n";
+        n.textContent = String(d);
+        const mark = document.createElement("span");
+        mark.className = "cal-mark";
+        if (st === "done") mark.textContent = "готово";
+        else if (st === "today") mark.textContent = iso === today ? "сегодня" : level.title;
+        else if (st === "open") mark.textContent = "играть";
+        else if (st === "missed") mark.textContent = "реклама";
+        else {
+            mark.classList.add("cal-lock-mark");
+            mark.innerHTML = '<svg class="ico cal-lock" aria-hidden="true"><use href="#i-lock"/></svg>';
+        }
+        btn.append(n, mark);
+        if (st !== "future") {
+            btn.addEventListener("click", () => onCalDayClick(iso));
+        }
+        grid.appendChild(btn);
+    }
+}
+
+async function onCalDayClick(iso) {
+    const st = calStatus(iso);
+    if (st === "future") {
+        toast("Новые дни открываются только по числу");
+        return;
+    }
+    if (st === "missed") {
+        busy = true;
+        const ok = await runAd("rewarded");
+        busy = false;
+        if (!ok) {
+            toast("Ролик не показался — день пока закрыт");
+            return;
+        }
+        if (!save.calAds) save.calAds = {};
+        save.calAds[iso] = 1;
+        persist();
+        toast("Пропущенный день открыт");
+        enterPlay(octIndexForIso(iso, OCT_LEVELS.length), { daily: true, calIso: iso, back: "bonus" });
+        return;
+    }
+    if (st === "done") {
+        showCalRecap(iso);
+        return;
+    }
+    enterPlay(octIndexForIso(iso, OCT_LEVELS.length), { daily: true, calIso: iso, back: "bonus" });
 }
 
 function checkWin() {
     if (!state.mosaic.every((c) => c.filled)) return;
     state.won = true;
+    browsingRanks = false;
+    overlayBack = state.dailyMode ? (overlayBack || "menu") : "menu";
     const result = finishLevel();
     platform.gameplayStop();
     ui.frame.classList.add("complete");
-    const last = state.levelIndex >= LEVELS.length - 1;
-    const openedWing2 = wingOf(LEVELS[state.levelIndex]) === 1 && workshop2Open();
+    const last = !state.dailyMode && state.levelIndex >= lastPlayableIndex();
+    const openedWing2 = !state.dailyMode && wingOf(currentLevel()) === 1 && workshop2Open();
     const bits = [`+${REWARD} монет`];
     if (result.bonus) bits.push(`+${result.bonus} бонус`);
     if (state.dailyMode) {
@@ -957,10 +1250,10 @@ function checkWin() {
         });
     } else {
         fillWinSheet({
-            title: last ? "Королевство полно!" : (openedWing2 && LEVELS[state.levelIndex].id === "night" ? "Мастерская 1 готова!" : "Картина готова!"),
+            title: last ? "Королевство полно!" : (openedWing2 && currentLevel().id === "night" ? "Мастерская 1 готова!" : "Картина готова!"),
             copy: last
                 ? "Все картины собраны. Их можно снова открыть в галерее."
-                : (openedWing2 && LEVELS[state.levelIndex].id === "night"
+                : (openedWing2 && currentLevel().id === "night"
                     ? "Вторая мастерская открыта в галерее."
                     : "Мозаика собрана и повешена в галерею."),
             movesText: result.record
@@ -1197,6 +1490,11 @@ function doExtra() {
 
 async function refillWithAd(kind, okText) {
     if (busy) return;
+    if (adHelpBlocked()) {
+        toast("Завтра снова");
+        render();
+        return;
+    }
     busy = true;
     render();
     const ok = await runAd("rewarded");
@@ -1206,6 +1504,8 @@ async function refillWithAd(kind, okText) {
         render();
         return;
     }
+    save.adHelps = syncAdHelps() + 1;
+    persist();
     if (kind === "shuffles") state.shuffles += 1;
     if (kind === "undos") state.undos += 1;
     if (kind === "wands") state.wands += 1;
@@ -1221,9 +1521,12 @@ async function refillWithAd(kind, okText) {
 }
 
 async function claimReward() {
-    if (state.claimed && (screen === "menu" || (state.dailyMode && screen !== "play"))) {
-        ui.overlay.classList.remove("show");
-        showScreen("menu");
+    if (state.claimed && browsingRanks) {
+        closeWinSheet();
+        return;
+    }
+    if (state.claimed && (screen === "menu" || screen === "gallery" || screen === "bonus")) {
+        closeWinSheet();
         return;
     }
     if (!state.claimed) {
@@ -1232,14 +1535,13 @@ async function claimReward() {
         persist();
         ui.coins.textContent = String(save.coins);
         renderMenu();
-        const last = state.levelIndex >= LEVELS.length - 1;
+        const last = state.dailyMode ? false : state.levelIndex >= lastPlayableIndex();
         ui.claim.textContent = state.dailyMode || last ? "В меню" : "Следующая картина";
         beep(700, 0.12);
         return;
     }
-    if (state.dailyMode || state.levelIndex >= LEVELS.length - 1) {
-        ui.overlay.classList.remove("show");
-        showScreen(state.dailyMode ? "menu" : "gallery");
+    if (state.dailyMode || state.levelIndex >= lastPlayableIndex()) {
+        closeWinSheet();
         return;
     }
     ui.claim.disabled = true;
@@ -1267,7 +1569,7 @@ ui.extra.addEventListener("click", doExtra);
 ui.claim.addEventListener("click", claimReward);
 ui.retry.addEventListener("click", () => {
     ui.overlay.classList.remove("show");
-    enterPlay(state.levelIndex, { daily: state.dailyMode });
+    enterPlay(state.levelIndex, { daily: state.dailyMode, calIso: state.calIso });
 });
 ui.winMenu.addEventListener("click", () => {
     if (state.won && !state.claimed) {
@@ -1275,8 +1577,7 @@ ui.winMenu.addEventListener("click", () => {
         save.coins += state.payout || REWARD;
         persist();
     }
-    ui.overlay.classList.remove("show");
-    showScreen("menu");
+    closeWinSheet();
 });
 ui.menuBtn.addEventListener("click", () => {
     if (state.won && !state.claimed) {
@@ -1284,8 +1585,8 @@ ui.menuBtn.addEventListener("click", () => {
         save.coins += state.payout || REWARD;
         persist();
     }
-    ui.overlay.classList.remove("show");
-    showScreen("menu");
+    closeWinSheet();
+    if (screen === "play") showScreen("menu");
 });
 ui.mute.addEventListener("click", () => {
     save.mute = !save.mute;
@@ -1296,13 +1597,13 @@ ui.winRank?.addEventListener("click", async () => {
     await loadWinRanks();
     const ok = await platform.showLeaderboard?.(masteryScore());
     if (!ok && !ui.winRankList?.children.length) {
-        const id = LEVELS[state.levelIndex].id;
+        const id = currentLevel().id;
         const best = save.bestMoves?.[id];
         toast(best ? `Личный рекорд этой картины: ${formatMoves(best)}` : "Собери картину — появится рекорд");
     }
 });
 ui.winShare?.addEventListener("click", async () => {
-    const level = LEVELS[state.levelIndex];
+    const level = currentLevel();
     const ok = await platform.share?.(
         `Мозаэлия: «${level.title}» за ${formatMoves(state.moves)}. Чем меньше ходов — тем выше место!`
     );
@@ -1312,7 +1613,7 @@ ui.winShare?.addEventListener("click", async () => {
 ui.playBtn.addEventListener("click", () => enterPlay(nextPlayIndex()));
 $("daily-btn").addEventListener("click", () => {
     if (dailyDoneToday()) showDailyRecap();
-    else enterPlay(dailyLevelIndex(), { daily: true });
+    else enterPlay(dailyLevelIndex(), { daily: true, calIso: todayIso(), back: "menu" });
 });
 $("shop-btn").addEventListener("click", () => showScreen("shop"));
 $("shop-back").addEventListener("click", () => showScreen("menu"));
@@ -1323,6 +1624,8 @@ $("gallery-btn").addEventListener("click", () => {
     showScreen("gallery");
 });
 $("gallery-back").addEventListener("click", () => showScreen("menu"));
+$("bonus-btn").addEventListener("click", () => showScreen("bonus"));
+$("bonus-back").addEventListener("click", () => showScreen("menu"));
 $("gallery-page-1").addEventListener("click", () => {
     galleryPage = 1;
     renderGallery();
@@ -1331,7 +1634,13 @@ $("gallery-page-2").addEventListener("click", () => {
     galleryPage = 2;
     renderGallery();
 });
+$("gallery-page-3").addEventListener("click", () => {
+    galleryPage = 3;
+    renderGallery();
+});
 $("howto-play").addEventListener("click", () => enterPlay(nextPlayIndex(), { fromHowto: true }));
+$("news-close").addEventListener("click", closeNews);
+$("news-ok").addEventListener("click", closeNews);
 
 let markTaps = 0;
 let markTimer = 0;
@@ -1364,6 +1673,11 @@ $("dev-reset").addEventListener("click", () => {
     save.dailyLevel = "";
     save.dailyStars = 0;
     save.dailyClean = false;
+    save.calDays = {};
+    save.calAds = {};
+    save.adHelpDate = "";
+    save.adHelps = 0;
+    save.seenNews = "";
     persist();
     renderMenu();
     toast("Прогресс сброшен, картины в мастере всё ещё открыты");
@@ -1384,6 +1698,10 @@ platform.onResume(() => {
 });
 
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+syncViewport();
+window.addEventListener("resize", syncViewport);
+window.visualViewport?.addEventListener("resize", syncViewport);
 
 showScreen("menu");
 document.documentElement.lang = (platform.locale() || "ru").slice(0, 2);
@@ -1447,6 +1765,13 @@ if (new URLSearchParams(location.search).has("shot")) {
         gallery2() {
             galleryPage = 2;
             showScreen("gallery");
+        },
+        gallery3() {
+            galleryPage = 3;
+            showScreen("gallery");
+        },
+        october() {
+            showScreen("bonus");
         },
         play() {
             shotPlay(0, 0.48);
