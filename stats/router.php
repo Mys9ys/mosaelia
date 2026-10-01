@@ -1,6 +1,6 @@
 <?php
 $path = parse_url($_SERVER["REQUEST_URI"] ?? "/", PHP_URL_PATH) ?: "/";
-if (strpos($path, "/data") === 0 || $path === "/config.php" || $path === "/config.example.php") {
+if (strpos($path, "/data") === 0 || $path === "/config.php" || $path === "/config.example.php" || $path === "/ranks-lib.php") {
     http_response_code(404);
     exit;
 }

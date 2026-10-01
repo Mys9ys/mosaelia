@@ -41,6 +41,16 @@ export function createStub() {
         },
         locale() {
             return (navigator.language || "ru").slice(0, 2);
+        },
+        playerName() {
+            return "";
+        },
+        async submitScore() {},
+        async showLeaderboard() {
+            return false;
+        },
+        async share() {
+            return false;
         }
     };
 }

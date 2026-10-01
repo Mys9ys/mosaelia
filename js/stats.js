@@ -2,7 +2,7 @@ import { STATS_TOKEN, STATS_URL } from "./stats-config.js";
 
 const ID_KEY = "mosaelia-aid";
 
-function guestId() {
+export function guestId() {
     try {
         let id = localStorage.getItem(ID_KEY);
         if (!id) {
@@ -26,6 +26,12 @@ function endpoint() {
     return STATS_URL || "";
 }
 
+function rankEndpoint() {
+    const collect = endpoint();
+    if (!collect) return "";
+    return collect.replace(/collect\.php.*$/, "rank.php");
+}
+
 export function track(ev, extra = {}) {
     if (new URLSearchParams(location.search).has("shot")) return;
     const url = endpoint();
@@ -39,6 +45,9 @@ export function track(ev, extra = {}) {
         level: extra.level || "",
         first: extra.first ? 1 : 0,
         total: extra.total ?? null,
+        moves: extra.moves ?? null,
+        clean: extra.clean ? 1 : 0,
+        name: extra.name || "",
         token: STATS_TOKEN
     });
     try {
@@ -50,4 +59,17 @@ export function track(ev, extra = {}) {
         /* fall through */
     }
     fetch(url, { method: "POST", body: payload, keepalive: true, mode: "no-cors" }).catch(() => {});
+}
+
+export async function fetchRanks(level) {
+    const url = rankEndpoint();
+    if (!url || !level) return [];
+    try {
+        const res = await fetch(`${url}?level=${encodeURIComponent(level)}`, { mode: "cors" });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data?.rows) ? data.rows : [];
+    } catch {
+        return [];
+    }
 }

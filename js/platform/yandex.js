@@ -1,6 +1,4 @@
-import { bindVisibility, loadScript, placeholderAd, readLocal, writeLocal } from "./local.js";
-
-const SDK_SRC = "/sdk.js";
+import { bindVisibility, placeholderAd, readLocal, writeLocal } from "./local.js";
 
 export function createYandex() {
     let ysdk = null;
@@ -39,10 +37,7 @@ export function createYandex() {
 
     async function ensureSdk() {
         if (window.YaGames) return;
-        await loadScript(SDK_SRC, 8000);
-        if (!window.YaGames) {
-            throw new Error("YaGames is not defined");
-        }
+        throw new Error("YaGames is not defined");
     }
 
     return {
@@ -142,6 +137,16 @@ export function createYandex() {
         },
         locale() {
             return ysdk?.environment?.i18n?.lang || "ru";
+        },
+        playerName() {
+            return "";
+        },
+        async submitScore() {},
+        async showLeaderboard() {
+            return false;
+        },
+        async share() {
+            return false;
         }
     };
 }

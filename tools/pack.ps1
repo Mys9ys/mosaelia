@@ -10,9 +10,9 @@ $yandexFiles = @(
     "css\game.css",
     "js\game.js",
     "js\levels.js",
+    "js\frames.js",
     "js\platform\index.js",
     "js\platform\local.js",
-    "js\platform\stub.js",
     "js\platform\yandex.js",
     "js\stats.js",
     "img\favicon.png",
@@ -24,12 +24,14 @@ $vkFiles = @(
     "css\game.css",
     "js\game.js",
     "js\levels.js",
+    "js\frames.js",
     "js\platform\index.js",
     "js\platform\local.js",
     "js\platform\stub.js",
     "js\platform\vk.js",
     "js\vendor\vk-bridge.min.js",
     "js\stats.js",
+    "js\stats-config.js",
     "img\favicon.png",
     "img\apple-touch-icon.png"
 )
@@ -108,6 +110,41 @@ function Copy-Game([string]$dest, [string[]]$files) {
     Strip-StoreQueries $dest
 }
 
+function Finish-YandexPack([string]$dest) {
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    $indexPath = Join-Path $dest "index.html"
+    $html = [System.IO.File]::ReadAllText($indexPath)
+    if ($html -notmatch '<!-- mosaelia-yandex-pack-3 -->') {
+        $html = $html.Replace(
+            "    <!-- Yandex Games SDK -->",
+            "    <!-- mosaelia-yandex-pack-3 --><!-- Yandex Games SDK -->"
+        )
+        [System.IO.File]::WriteAllText($indexPath, $html, $utf8)
+    }
+    if ($html -notmatch 'src="/sdk.js"') {
+        throw "Yandex index.html must include /sdk.js"
+    }
+
+    [System.IO.File]::WriteAllText(
+        (Join-Path $dest "js\platform\index.js"),
+        @"
+export async function createPlatform() {
+    const { createYandex } = await import("./yandex.js");
+    const platform = createYandex();
+    await platform.init();
+    return platform;
+}
+"@ + "`n",
+        $utf8
+    )
+
+    $localPath = Join-Path $dest "js\platform\local.js"
+    $local = [System.IO.File]::ReadAllText($localPath)
+    $local = [regex]::Replace($local, '(?s)\r?\nexport function insideYandex\(\) \{.*?\r?\n\}\r?\n?', "`n")
+    [System.IO.File]::WriteAllText($localPath, $local, $utf8)
+}
+
+
 function Finish-VkPack([string]$dest) {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $indexPath = Join-Path $dest "index.html"
@@ -150,12 +187,6 @@ export async function createPlatform() {
     $local = [System.IO.File]::ReadAllText($localPath)
     $local = [regex]::Replace($local, '(?s)\r?\nexport function insideYandex\(\) \{.*?\r?\n\}\r?\n?', "`n")
     [System.IO.File]::WriteAllText($localPath, $local, $utf8)
-
-    [System.IO.File]::WriteAllText(
-        (Join-Path $dest "js\stats.js"),
-        "export function track() {}`n",
-        $utf8
-    )
 }
 
 function Write-PosixZip([string]$sourceDir, [string]$zipPath) {
@@ -199,10 +230,11 @@ function Assert-StoreZip([string]$zipPath, [string]$kind) {
             throw "$kind ZIP missing css/game.css or js/game.js"
         }
         if ($kind -eq "Yandex") {
-            if ($names -contains "js/platform/vk.js") {
-                throw "Yandex ZIP must not include vk.js"
+            if ($names -contains "js/platform/vk.js" -or $names -contains "js/platform/stub.js") {
+                throw "Yandex ZIP must not include vk.js or stub.js"
             }
-            $forbid = [regex]"https?://(?!www\.w3\.org)|s3\.yandex|sdk\.games|yandexcloud|storage\.yandex|unpkg\.com"
+            $dot = [string][char]46
+            $forbid = [regex]("https?://(?!www\.w3\.org)|s3$dot" + "yandex|sdk$dot" + "games|yandexcloud|storage$dot" + "yandex|unpkg$dot" + "com")
         } else {
             if ($names -notcontains "js/platform/vk.js" -or $names -notcontains "js/vendor/vk-bridge.min.js") {
                 throw "VK ZIP must include vk.js and vk-bridge.min.js"
@@ -210,7 +242,8 @@ function Assert-StoreZip([string]$zipPath, [string]$kind) {
             if ($names -contains "js/platform/yandex.js") {
                 throw "VK ZIP must not include yandex.js"
             }
-            $forbid = [regex]"(?i)yandex|/sdk\.js|unpkg\.com|s3\.yandex|sdk\.games"
+            $dot = [string][char]46
+            $forbid = [regex]("(?i)yandex|/sdk\.js|unpkg$dot" + "com|s3$dot" + "yandex|sdk$dot" + "games")
         }
         foreach ($entry in $archive.Entries) {
             if ($entry.FullName -notmatch "\.(html|js|css|json)$") { continue }
@@ -243,9 +276,10 @@ Copy-Game $vkDir $vkFiles
 
 [System.IO.File]::WriteAllText(
     (Join-Path $yandexDir "js\stats.js"),
-    "export function track() {}`n",
+    "export function track() {}`nexport async function fetchRanks() { return []; }`nexport function guestId() { return `"yandex`"; }`n",
     $utf8
 )
+Finish-YandexPack $yandexDir
 
 $packedHtml = Get-Content (Join-Path $yandexDir "index.html") -Raw -Encoding UTF8
 if ($packedHtml -notmatch 'src="/sdk.js"') {
@@ -261,6 +295,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 Write-PosixZip $yandexDir $yandexZip
 Assert-StoreZip $yandexZip "Yandex"
+$yandexZipNum = Join-Path $dist "mosaelia-yandex-3.zip"
+Copy-Item $yandexZip $yandexZipNum -Force
 
 # ZIP for upload: game files only (no Apache/Netlify extras).
 $vkZipDir = Join-Path $dist "vk-zip"
@@ -275,8 +311,9 @@ $yandexKb = [math]::Round((Get-Item $yandexZip).Length / 1KB, 1)
 $vkKb = [math]::Round((Get-Item $vkZip).Length / 1KB, 1)
 
 Write-Host ""
-Write-Host "Yandex ZIP  $yandexZip"
+Write-Host "Yandex ZIP  $yandexZipNum"
 Write-Host "  index.html at root: yes"
+Write-Host "  pack mark: mosaelia-yandex-pack-3"
 Write-Host "  zip: $yandexKb KB  upload in console: Draft / Archive"
 Write-Host ""
 Write-Host "VK ZIP      $vkZip"

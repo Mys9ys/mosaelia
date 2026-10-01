@@ -5,11 +5,11 @@ export const COLORS = {
     cloud: { c: "#fdf8ef", d: "#ddd0b8", name: "Парус", shape: "pebble" },
     porcelain: { c: "#eef4f9", d: "#a9c4dc", name: "Фарфор" },
     azure: { c: "#6f9fd8", d: "#3a68a8", name: "Кобальт" },
-    sun: { c: "#ffd66b", d: "#e89f2e", name: "Солнце" },
-    glow: { c: "#ff9d5c", d: "#e0662a", name: "Закат" },
+    sun: { c: "#ffe44d", d: "#d9a400", name: "Солнце" },
+    glow: { c: "#ff6f42", d: "#c43a1c", name: "Закат" },
     rose: { c: "#f7a8b8", d: "#dd6d8c", name: "Заря" },
-    stoneL: { c: "#f0e2c2", d: "#cbb98f", name: "Известняк", shape: "pebble" },
-    stone: { c: "#e0c9a0", d: "#b3925c", name: "Песчаник" },
+    stoneL: { c: "#ebe4d4", d: "#b7a584", name: "Известняк", shape: "pebble" },
+    stone: { c: "#cbb79a", d: "#8e7350", name: "Песчаник" },
     roof: { c: "#d95f4c", d: "#a33a2c", name: "Черепица" },
     wood: { c: "#b57a4c", d: "#7e4f2d", name: "Дерево" },
     woodD: { c: "#7d5133", d: "#523219", name: "Тёмный дуб" },
@@ -18,7 +18,7 @@ export const COLORS = {
     leafD: { c: "#4c7844", d: "#2f5430", name: "Лес" },
     bloomP: { c: "#f7a6bd", d: "#d9628b", shape: "flower", name: "Пион" },
     bloomL: { c: "#c2a6e8", d: "#8e64c4", shape: "flower", name: "Фиалка" },
-    bloomY: { c: "#ffd97e", d: "#e2a136", shape: "flower", name: "Лютик" },
+    bloomY: { c: "#ff9e32", d: "#c45a10", shape: "flower", name: "Лютик" },
     bloomW: { c: "#fcf6ea", d: "#c8b493", shape: "flower", name: "Ромашка" },
     lav: { c: "#b49ae0", d: "#7e62bd", name: "Лаванда" },
     ink: { c: "#4a4574", d: "#2b2848", name: "Ночь" }
@@ -273,7 +273,7 @@ function shatter(id, cols, rows, rects) {
     }));
 }
 
-function level(id, title, grid, deal = 2) {
+function level(id, title, grid, deal = 2, wing = 1) {
     const rows = grid.length;
     const cols = grid[0].length;
     if (grid.some((row) => row.length !== cols)) {
@@ -284,7 +284,7 @@ function level(id, title, grid, deal = 2) {
         throw new Error(`Bad tessellation: ${id}`);
     }
     const pieces = shatter(id, cols, rows, rects);
-    return { id, title, rows, cols, pieces, deal };
+    return { id, title, rows, cols, pieces, deal, wing };
 }
 
 export const LEVELS = [
@@ -412,7 +412,120 @@ export const LEVELS = [
         "sun   ink   ink   ink   ink   ink   sun",
         "leafD leaf  leafD lav   lav   leaf  leafD",
         "leaf  leafD leaf  leafD leaf  leafD leaf"
-    ), 2)
+    ), 2),
+    level("bakery", "Булочная", g(
+        "wood  wood  wood  wood  wood",
+        "sun   stoneL stoneL sun  stoneL",
+        "glow  glow  stoneL glow  glow",
+        "woodD wood  wood  wood  woodD"
+    ), 2, 2),
+    level("market", "Рынок", g(
+        "sky   sky   sky   sky   sky   sky",
+        "wood  bloomY bloomP bloomL bloomW wood",
+        "wood  leaf  leaf  leaf  leaf  wood",
+        "stone stone stone stone stone stone"
+    ), 2, 2),
+    level("fountain", "Фонтан", g(
+        "skyL  sky   sky   sky   skyL",
+        "leaf  stoneL stone stoneL leaf",
+        "leaf  sea   sea   sea  leaf",
+        "leafL stone stone stone leafL",
+        "leaf  leaf  leaf  leaf  leaf"
+    ), 2, 2),
+    level("orchard", "Сад", g(
+        "sky   sky   sky   sky   sky   sky",
+        "leafL bloomP leaf  bloomY leafL leaf",
+        "leaf  leaf  leafL leaf  leaf  leafL",
+        "leafD leaf  leaf  leaf  leaf  leafD"
+    ), 2, 2),
+    level("atelier", "Ателье", g(
+        "wood  wood  wood  wood  wood  wood",
+        "wood  rose  rose  lav   lav   wood",
+        "wood  porcelain porcelain porcelain wood wood",
+        "wood  azure azure  cloud cloud wood",
+        "woodD wood  wood  wood  wood  woodD"
+    ), 2, 2),
+    level("orangerie", "Оранжерея", g(
+        "skyL  skyL  sky   sky   skyL  skyL",
+        "leafL bloomP leafL bloomY leafL bloomL",
+        "leaf  leaf  leaf  leaf  leaf  leaf",
+        "stoneL stone stone stone stone stoneL"
+    ), 2, 2),
+    level("pier", "Пристань", g(
+        "sky   sky   sun   sky   sky",
+        "sky   sea   sea   sea   sky",
+        "wood  wood  wood  wood  wood",
+        "sea   sea   sea   sea   sea",
+        "sea   sea   glow  sea   sea"
+    ), 2, 2),
+    level("gazebo", "Беседка", g(
+        "leaf  leaf  wood  wood  leaf  leaf",
+        "leafL wood  woodD woodD wood  leafL",
+        "bloomW wood  wood  wood  wood  bloomY",
+        "leaf  leafL leaf  leaf  leafL leaf"
+    ), 2, 2),
+    level("kiln", "Печь", g(
+        "stone stone stone stone stone",
+        "stone glow  glow  glow  stone",
+        "stone glow  sun   glow  stone",
+        "woodD wood  wood  wood  woodD"
+    ), 2, 2),
+    level("library", "Библиотека", g(
+        "woodD wood  wood  wood  wood  woodD",
+        "wood  glow  glow  lav   lav   wood",
+        "wood  porcelain porcelain porcelain porcelain wood",
+        "wood  woodD wood  wood  woodD wood"
+    ), 2, 2),
+    level("balcony", "Балкон", g(
+        "sky   sky   sky   sky   sky   sky",
+        "rose  rose  cloud cloud rose  rose",
+        "stone stone stone stone stone stone",
+        "leaf  bloomP leaf  bloomL leaf  leaf"
+    ), 2, 2),
+    level("vineyard", "Виноградник", g(
+        "sky   sky   sky   sky   sky",
+        "leafL leaf  leafL leaf  leafL",
+        "leaf  bloomP leaf  bloomP leaf",
+        "leafD leaf  leaf  leaf  leafD",
+        "wood  wood  wood  wood  wood"
+    ), 2, 2),
+    level("carousel", "Карусель", g(
+        "sky   rose  sun   rose  sky   sky",
+        "rose  wood  wood  wood  rose  sky",
+        "wood  glow  glow  glow  wood  rose",
+        "leaf  leafL leaf  leafL leaf  leaf"
+    ), 2, 2),
+    level("chapel", "Часовня", g(
+        "sky   sky   roof  roof  sky   sky",
+        "sky   stone stone stone stone sky",
+        "stone glow  stone stone glow  stone",
+        "stoneL stoneL stoneL stoneL stoneL stoneL"
+    ), 2, 2),
+    level("apiary", "Пасека", g(
+        "sky   sky   sky   sky   sky   sky",
+        "sun   bloomY leaf  bloomY sun  leafL",
+        "wood  wood  wood  wood  wood  wood",
+        "leaf  leafL leaf  leafL leaf  leaf"
+    ), 2, 2),
+    level("terrace", "Терраса", g(
+        "skyL  sky   sky   sky   skyL",
+        "wood  wood  wood  wood  wood",
+        "porcelain azure porcelain azure porcelain",
+        "leaf  bloomW leaf  bloomL leaf",
+        "leafD leaf  leaf  leaf  leafD"
+    ), 2, 2),
+    level("harbor", "Гавань", g(
+        "sky   sky   sun   sky   sky   sky",
+        "sea   sea   sea   sea   sea   sea",
+        "wood  wood  cloud cloud wood  wood",
+        "sea   sea   sea   sea   sea   sea"
+    ), 2, 2),
+    level("aurora", "Сияние", g(
+        "ink   lav   skyL  lav   ink   ink",
+        "ink   skyL  lav   skyL  ink   sun",
+        "lav   ink   ink   ink   lav   ink",
+        "leafD leaf  leafD leaf  leaf  leafD"
+    ), 2, 2)
 ];
 
 export function tilesFor(level) {

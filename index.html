@@ -8,11 +8,27 @@
     <title>Мозаэлия</title>
     <!-- Yandex Games SDK -->
     <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=27">
+    <link rel="stylesheet" href="css/game.css?v=33">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
 <body>
+    <svg class="svg-sprite" aria-hidden="true">
+        <symbol id="i-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11.2 12 4.6l7.5 6.6v8.2a1.4 1.4 0 0 1-1.4 1.4h-4.2v-5.2h-3.8v5.2H5.9a1.4 1.4 0 0 1-1.4-1.4z"/></g></symbol>
+        <symbol id="i-sound" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 9.2h3.1L12 5.8v12.4l-4.7-3.4H4.2a1 1 0 0 1-1-1V10.2a1 1 0 0 1 1-1zm11.2 1.1a3.2 3.2 0 0 1 0 3.4M17.8 8a6 6 0 0 1 0 8"/></g></symbol>
+        <symbol id="i-mute" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 9.2h3.1L12 5.8v12.4l-4.7-3.4H4.2a1 1 0 0 1-1-1V10.2a1 1 0 0 1 1-1zM15.2 9.2l5.4 5.4M20.6 9.2l-5.4 5.4"/></g></symbol>
+        <symbol id="i-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.2h4.2l3 3M16.4 7.2H20m0 0-2.4-2.4M20 7.2l-2.4 2.4M4 16.8h4.2l9.2-9.6M16.4 16.8H20m0 0-2.4-2.4M20 16.8l-2.4 2.4"/></g></symbol>
+        <symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 7.4 4.2 10.4l3 3M4.6 10.4h8.6a5.2 5.2 0 1 1 0 10.4H10"/></g></symbol>
+        <symbol id="i-wand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 4.2 12 6.8l-2.6 1.4L12 9.6l1.4 2.6 1.4-2.6 2.6-1.4-2.6-1.4zM6.8 13.2 5.8 15l-1.8 1 1.8 1 1 1.8 1-1.8 1.8-1-1.8-1zM18.4 14.2 14.8 17.8 8.4 20.2l2.4-6.4 3.6-3.6z"/></g></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.2v11.6M6.2 12h11.6"/></g></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 10.2V8.4a3.8 3.8 0 0 1 7.6 0v1.8M7 10.2h10v9.2H7zM12 13.6v2.8"/></g></symbol>
+        <symbol id="i-steps" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 16.8h4.4M7.4 14.6v4.4M14.4 7.2h4.4M16.6 5v4.4M9.6 9.6h4.2M11.7 7.6v4.2"/></g></symbol>
+        <symbol id="i-star" viewBox="0 0 24 24"><g fill="currentColor" stroke="#b8862a" stroke-width="0.7" stroke-linejoin="round"><path d="M12 3.4 14.6 9l6.2.6-4.6 4.2 1.4 6-5.6-3.2-5.6 3.2 1.4-6L3.2 9.6 9.4 9z"/></g></symbol>
+        <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 6.4 20 12l-5.8 5.6V14c-5.2.2-8 2.4-9.6 5.8C4.4 14 7.6 9.6 14.2 9z"/></g></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zM12 3.2v2.2M12 18.6v2.2M3.2 12h2.2M18.6 12h2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></g></symbol>
+        <symbol id="i-frame" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5zM8 8h8v8H8z"/></g></symbol>
+        <symbol id="i-leaf" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18.6 5.4C12.2 5.6 6.4 10 6.2 16.8c3.2.4 6.4-1 8.6-3.2 2.4-2.4 3.8-5.4 3.8-8.2zM8.2 15.6c2.2-4.2 6-7.4 10.4-8.8"/></g></symbol>
+    </svg>
     <div id="app">
         <section class="screen active" id="screen-menu" aria-label="Главное меню">
             <div class="menu-hero">
@@ -30,8 +46,11 @@
             </div>
             <div class="menu-actions">
                 <button class="primary" id="play-btn" type="button">Играть</button>
+                <button class="secondary" id="daily-btn" type="button">Картина дня</button>
+                <p class="menu-daily" id="daily-meta"></p>
                 <button class="secondary" id="howto-btn" type="button">Как играть</button>
                 <button class="secondary" id="gallery-btn" type="button">Галерея</button>
+                <button class="secondary" id="shop-btn" type="button">Рамки</button>
                 <div class="dev-panel" id="dev-panel" hidden>
                     <p class="dev-label">Режим мастера</p>
                     <p class="dev-meta" id="dev-platform"></p>
@@ -43,7 +62,7 @@
 
         <section class="screen" id="screen-howto" aria-label="Как играть">
             <header class="hud">
-                <button class="icon-btn" id="howto-back" type="button" aria-label="В меню">⌂</button>
+                <button class="icon-btn" id="howto-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
                 <div class="titles titles-pill">
                     <div class="brand">Как играть</div>
                     <div class="level-name">Три шага</div>
@@ -73,12 +92,13 @@
                     </div>
                 </li>
             </ol>
+            <p class="howto-note">Чем меньше ходов — тем выше место в рейтинге картины. Чистый проход без перемешивания и палочки даёт значок листа.</p>
             <button class="primary" id="howto-play" type="button">Понятно, играть</button>
         </section>
 
         <section class="screen" id="screen-gallery" aria-label="Галерея">
             <header class="hud">
-                <button class="icon-btn" id="gallery-back" type="button" aria-label="В меню">⌂</button>
+                <button class="icon-btn" id="gallery-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
                 <div class="titles titles-pill">
                     <div class="brand">Галерея</div>
                     <div class="level-name" id="gallery-sheet">Мастерская 1</div>
@@ -92,15 +112,35 @@
             </nav>
         </section>
 
+        <section class="screen" id="screen-shop" aria-label="Рамки">
+            <header class="hud">
+                <button class="icon-btn" id="shop-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
+                <div class="titles titles-pill">
+                    <div class="brand">Рамки</div>
+                    <div class="level-name" id="shop-coins">0 монет</div>
+                </div>
+                <span class="hud-spacer"></span>
+            </header>
+            <p class="shop-lead">Косметика для галереи и игры. На прогресс не влияет.</p>
+            <div class="shop-grid" id="shop-grid"></div>
+        </section>
+
         <section class="screen" id="screen-play" aria-label="Игра">
             <header class="hud">
-                <button class="icon-btn" id="menu-btn" type="button" aria-label="В меню">⌂</button>
+                <button class="icon-btn" id="menu-btn" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
                 <div class="titles titles-pill">
                     <div class="brand">Мозаэлия</div>
                     <div class="level-name" id="level-name">Картина 1</div>
                 </div>
                 <div class="hud-end">
-                    <button class="icon-btn" id="mute" type="button" aria-label="Звук">🔊</button>
+                    <button class="icon-btn" id="mute" type="button" aria-label="Звук">
+                        <svg class="ico ico-sound"><use href="#i-sound"/></svg>
+                        <svg class="ico ico-mute"><use href="#i-mute"/></svg>
+                    </button>
+                    <div class="moves" title="Ходы" id="moves-wrap">
+                        <svg class="ico"><use href="#i-steps"/></svg>
+                        <span id="moves">0</span>
+                    </div>
                     <div class="coins" title="Монеты">
                         <span class="coin-dot"></span>
                         <span id="coins">0</span>
@@ -135,42 +175,55 @@
 
             <footer class="boosters">
                 <button class="booster booster-shuffle" id="shuffle" type="button">
-                    <span class="booster-face">🔀<span class="uses" id="shuffle-uses">3</span></span>
+                    <span class="booster-face"><svg class="ico"><use href="#i-shuffle"/></svg><span class="uses" id="shuffle-uses">3</span></span>
                     Перемешать
                 </button>
                 <button class="booster booster-undo" id="undo" type="button">
-                    <span class="booster-face">↩<span class="uses" id="undo-uses">5</span></span>
+                    <span class="booster-face"><svg class="ico"><use href="#i-undo"/></svg><span class="uses" id="undo-uses">5</span></span>
                     Отмена
                 </button>
                 <button class="booster booster-wand" id="wand" type="button">
-                    <span class="booster-face">✦<span class="uses" id="wand-uses">2</span></span>
+                    <span class="booster-face"><svg class="ico"><use href="#i-wand"/></svg><span class="uses" id="wand-uses">2</span></span>
                     Палочка
                 </button>
                 <button class="booster booster-extra" id="extra" type="button">
-                    <span class="booster-face">＋<span class="uses" id="extra-uses">1</span></span>
+                    <span class="booster-face"><svg class="ico"><use href="#i-plus"/></svg><span class="uses" id="extra-uses">1</span></span>
                     Слот
                 </button>
             </footer>
 
-            <div class="overlay" id="overlay">
-                <div class="win-rays" aria-hidden="true"></div>
-                <div class="confetti" aria-hidden="true">
-                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </section>
+
+        <div class="overlay" id="overlay">
+            <div class="win-rays" aria-hidden="true"></div>
+            <div class="confetti" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="sheet">
+                <div class="stars" id="win-stars" aria-hidden="true">
+                    <span><svg class="ico"><use href="#i-star"/></svg></span>
+                    <span><svg class="ico"><use href="#i-star"/></svg></span>
+                    <span><svg class="ico"><use href="#i-star"/></svg></span>
                 </div>
-                <div class="sheet">
-                    <div class="stars" aria-hidden="true"><span>★</span><span>★</span><span>★</span></div>
-                    <h2 id="win-title">Картина готова!</h2>
-                    <p id="win-copy">Мозаика собрана и повешена в галерею.</p>
-                    <div class="win-rewards">
-                        <div class="win-chip">🖼 +1 в галерею</div>
-                        <div class="win-chip" id="reward">+50 монет</div>
-                    </div>
-                    <button class="primary" id="claim" type="button">Забрать награду</button>
-                    <button class="ghost-btn" id="retry" type="button">Ещё раз эту картину</button>
-                    <button class="ghost-btn" id="win-menu" type="button">В меню</button>
+                <h2 id="win-title">Картина готова!</h2>
+                <p id="win-copy">Мозаика собрана и повешена в галерею.</p>
+                <p class="win-moves" id="win-moves"></p>
+                <p class="win-clean" id="win-clean" hidden>Чистый проход</p>
+                <p class="rank-caption" id="rank-caption">Рейтинг картины</p>
+                <ol class="rank-list" id="win-rank-list"></ol>
+                <div class="win-rewards">
+                    <div class="win-chip">+1 в галерею</div>
+                    <div class="win-chip" id="reward">+50 монет</div>
+                </div>
+                <button class="primary" id="claim" type="button">Забрать награду</button>
+                <button class="secondary" id="win-rank" type="button" hidden>Таблица VK</button>
+                <button class="ghost-btn" id="win-share" type="button">Поделиться</button>
+                <div class="win-split">
+                    <button class="win-split-btn" id="retry" type="button">Сыграть ещё раз</button>
+                    <button class="win-split-btn" id="win-menu" type="button">В меню</button>
                 </div>
             </div>
-        </section>
+        </div>
 
         <div class="toast" id="toast"></div>
     </div>
@@ -178,11 +231,11 @@
         <div class="sheet ad-sheet">
             <p class="ad-kicker">Реклама</p>
             <h2 id="ad-title">Пауза</h2>
-            <p id="ad-copy">Заглушка для проверки. На Яндексе и VK здесь будет ролик площадки.</p>
+            <p id="ad-copy">Заглушка для проверки. На площадке здесь будет ролик.</p>
             <div class="ad-bar"><span class="ad-bar-fill" id="ad-bar"></span></div>
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=27"></script>
+    <script type="module" src="js/game.js?v=31"></script>
 </body>
 </html>

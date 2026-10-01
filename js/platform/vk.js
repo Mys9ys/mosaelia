@@ -7,6 +7,8 @@ export function createVk() {
     let bridge = null;
     let saveTimer = 0;
     let pending = null;
+    let lastScore = 1;
+    let displayName = "";
     const pauseFns = [];
     const resumeFns = [];
 
@@ -55,6 +57,12 @@ export function createVk() {
                 bridge = getBridge();
                 if (!bridge) throw new Error("vkBridge missing");
                 await withTimeout(bridge.send("VKWebAppInit"), 8000, "VKWebAppInit");
+                try {
+                    const info = await withTimeout(bridge.send("VKWebAppGetUserInfo"), 4000, "VKWebAppGetUserInfo");
+                    displayName = String(info?.first_name || "").slice(0, 24);
+                } catch {
+                    displayName = "";
+                }
                 bridge.subscribe((event) => {
                     const type = event?.detail?.type;
                     if (type === "VKWebAppViewHide" || type === "VKWebAppPause") firePause();
@@ -119,6 +127,37 @@ export function createVk() {
         locale() {
             const lang = new URLSearchParams(location.search).get("vk_language") || navigator.language || "ru";
             return lang.slice(0, 2);
+        },
+        playerName() {
+            return displayName;
+        },
+        async submitScore(value) {
+            lastScore = Math.max(1, Math.floor(Number(value) || 1));
+        },
+        async showLeaderboard(value) {
+            const score = Math.max(1, Math.floor(Number(value) || lastScore || 1));
+            lastScore = score;
+            if (!bridge) return false;
+            try {
+                await bridge.send("VKWebAppShowLeaderBoardBox", { user_result: score });
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        async share(text) {
+            if (!bridge) return false;
+            try {
+                await bridge.send("VKWebAppShowWallPostBox", { message: text });
+                return true;
+            } catch {
+                try {
+                    await bridge.send("VKWebAppShare");
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
         }
     };
 }

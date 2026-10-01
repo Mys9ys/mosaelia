@@ -15,7 +15,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 $raw = file_get_contents("php://input");
-if ($raw === false || strlen($raw) > 4000) {
+if ($raw === false || strlen($raw) > 8000) {
     http_response_code(400);
     exit;
 }
@@ -46,15 +46,28 @@ if ($token !== "" && (string) ($data["token"] ?? "") !== $token) {
     exit;
 }
 
+require_once __DIR__ . "/ranks-lib.php";
+
+$level = substr(preg_replace("/[^a-z0-9_-]/", "", (string) ($data["level"] ?? "")), 0, 32);
+$moves = isset($data["moves"]) ? (int) $data["moves"] : null;
+$clean = !empty($data["clean"]) ? 1 : 0;
+$name = mosaelia_sanitize_name($data["name"] ?? "");
+
 $row = [
     "t" => (int) ($data["t"] ?? (int) round(microtime(true) * 1000)),
     "id" => $id,
     "ev" => $ev,
     "p" => substr(preg_replace("/[^a-z0-9_-]/", "", (string) ($data["p"] ?? "")), 0, 16),
-    "level" => substr(preg_replace("/[^a-z0-9_-]/", "", (string) ($data["level"] ?? "")), 0, 32),
+    "level" => $level,
     "first" => !empty($data["first"]) ? 1 : 0,
     "total" => isset($data["total"]) ? (int) $data["total"] : null,
+    "moves" => $moves,
+    "clean" => $clean,
 ];
+
+if ($ev === "complete" && $level !== "" && $moves) {
+    mosaelia_update_rank($level, $id, $moves, $clean, $name);
+}
 
 $dir = __DIR__ . "/data";
 if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {

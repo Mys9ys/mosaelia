@@ -1,6 +1,7 @@
-import { COLORS, LEVELS, tilesFor } from "./levels.js?v=27";
+import { COLORS, LEVELS, tilesFor } from "./levels.js?v=31";
+import { FRAMES } from "./frames.js?v=31";
 import { createPlatform } from "./platform/index.js";
-import { track } from "./stats.js";
+import { fetchRanks, guestId, track } from "./stats.js";
 
 const STACK_COUNT = 5;
 const STACK_VISIBLE = 6;
@@ -10,6 +11,8 @@ const UNDO_MAX = 5;
 const SHUFFLE_MAX = 3;
 const WAND_MAX = 2;
 const REWARD = 50;
+const CLEAN_BONUS = 25;
+const DAILY_BONUS = 20;
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
 const platform = await createPlatform();
@@ -21,6 +24,7 @@ const ui = {
         menu: $("screen-menu"),
         howto: $("screen-howto"),
         gallery: $("screen-gallery"),
+        shop: $("screen-shop"),
         play: $("screen-play")
     },
     mosaic: $("mosaic"),
@@ -44,6 +48,14 @@ const ui = {
     winMenu: $("win-menu"),
     menuBtn: $("menu-btn"),
     mute: $("mute"),
+    moves: $("moves"),
+    winMoves: $("win-moves"),
+    winStars: $("win-stars"),
+    winRank: $("win-rank"),
+    winShare: $("win-share"),
+    winClean: $("win-clean"),
+    winRankList: $("win-rank-list"),
+    rankCaption: $("rank-caption"),
     shuffle: $("shuffle"),
     undo: $("undo"),
     extra: $("extra"),
@@ -60,8 +72,8 @@ const ui = {
     galleryPage2: $("gallery-page-2")
 };
 
-const COMING_COUNT = 18;
 let galleryPage = 1;
+let pendingDaily = false;
 let stackFit = { shown: STACK_VISIBLE, peek: 18 };
 
 function readTilePx() {
@@ -102,7 +114,17 @@ function defaultSave() {
         shuffles: SHUFFLE_MAX,
         undos: UNDO_MAX,
         wands: WAND_MAX,
-        extraUsed: false
+        extraUsed: false,
+        bestMoves: {},
+        bestStars: {},
+        cleanRuns: {},
+        framesOwned: ["oak"],
+        frame: "oak",
+        dailyDate: "",
+        dailyBest: 0,
+        dailyLevel: "",
+        dailyStars: 0,
+        dailyClean: false
     };
 }
 
@@ -121,7 +143,12 @@ const state = {
     wands: WAND_MAX,
     history: [],
     won: false,
-    claimed: false
+    claimed: false,
+    moves: 0,
+    usedShuffle: false,
+    usedWand: false,
+    dailyMode: false,
+    payout: REWARD
 };
 
 function persist() {
@@ -153,7 +180,57 @@ function isDev() {
 }
 
 function isUnlocked(index) {
-    return isDev() || index <= save.unlocked;
+    return isDev()
+        || index <= save.unlocked
+        || save.completed.includes(LEVELS[index]?.id);
+}
+
+function wingOf(level) {
+    return level.wing || 1;
+}
+
+function workshop2Open() {
+    return isDev() || LEVELS.filter((level) => wingOf(level) === 1).every((level) => save.completed.includes(level.id));
+}
+
+function moscowDateKey() {
+    const d = new Date(Date.now() + 3 * 3600 * 1000);
+    return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+}
+
+function dailyLevelIndex() {
+    const pool = workshop2Open() ? LEVELS : LEVELS.filter((level) => wingOf(level) === 1);
+    const key = moscowDateKey();
+    let h = 2166136261;
+    for (const ch of key) {
+        h ^= ch.charCodeAt(0);
+        h = Math.imul(h, 16777619);
+    }
+    const pick = pool[(h >>> 0) % pool.length];
+    return Math.max(0, LEVELS.findIndex((level) => level.id === pick.id));
+}
+
+function ownedFrames() {
+    const owned = Array.isArray(save.framesOwned) ? save.framesOwned.slice() : ["oak"];
+    if (!owned.includes("oak")) owned.unshift("oak");
+    save.framesOwned = owned;
+    if (!owned.includes(save.frame)) save.frame = "oak";
+    return owned;
+}
+
+function currentFrame() {
+    ownedFrames();
+    return save.frame || "oak";
+}
+
+function applyFrameSkin(el) {
+    if (!el) return;
+    [...el.classList].filter((cls) => cls.startsWith("skin-")).forEach((cls) => el.classList.remove(cls));
+    el.classList.add(`skin-${currentFrame()}`);
+}
+
+function dailyDoneToday() {
+    return save.dailyDate === moscowDateKey() && Number(save.dailyBest) > 0;
 }
 
 function setDev(on, { silent = false } = {}) {
@@ -176,11 +253,13 @@ function nextPlayIndex() {
 
 function showScreen(name) {
     screen = name;
+    if (name !== "play") ui.overlay.classList.remove("show");
     Object.entries(ui.screens).forEach(([key, el]) => {
         el.classList.toggle("active", key === name);
     });
     if (name === "menu") renderMenu();
     if (name === "gallery") renderGallery();
+    if (name === "shop") renderShop();
     if (name === "play" && !state.won) platform.gameplayStart();
     else platform.gameplayStop();
 }
@@ -191,6 +270,17 @@ function renderMenu() {
         ? `Мастер · ${done} / ${LEVELS.length}`
         : `Картины ${done} / ${LEVELS.length}`;
     ui.menuCoins.textContent = String(save.coins);
+    const daily = LEVELS[dailyLevelIndex()];
+    const dailyEl = $("daily-meta");
+    const dailyBtn = $("daily-btn");
+    if (dailyBtn) {
+        dailyBtn.textContent = dailyDoneToday() ? "Результат дня" : "Картина дня";
+    }
+    if (dailyEl) {
+        dailyEl.textContent = dailyDoneToday()
+            ? `Сегодня: ${daily.title} · ${formatMoves(save.dailyBest)}`
+            : `Сегодня: ${daily.title}`;
+    }
     const nxt = nextPlayIndex();
     const allDone = done >= LEVELS.length;
     ui.playBtn.textContent = allDone
@@ -225,53 +315,20 @@ function miniMosaic(level, filled) {
     return mosaic;
 }
 
-function comingMosaic() {
-    const mosaic = document.createElement("div");
-    mosaic.className = "gallery-mosaic coming";
-    mosaic.style.setProperty("--cols", "5");
-    mosaic.style.setProperty("--rows", "4");
-    mosaic.style.gridTemplateColumns = "repeat(5, 1fr)";
-    mosaic.style.gridTemplateRows = "repeat(4, 1fr)";
-    for (let i = 0; i < 20; i++) {
-        const cell = document.createElement("div");
-        cell.className = "gallery-cell coming-cell";
-        mosaic.appendChild(cell);
-    }
-    return mosaic;
-}
-
 function renderGallery() {
     ui.galleryGrid.replaceChildren();
     const sheet = $("gallery-sheet");
     const onFirst = galleryPage === 1;
     ui.galleryPage1?.classList.toggle("on", onFirst);
     ui.galleryPage2?.classList.toggle("on", !onFirst);
+    const wing = onFirst ? 1 : 2;
     if (sheet) {
-        sheet.textContent = onFirst ? "Мастерская 1" : "В разработке";
-    }
-    if (!onFirst) {
-        for (let i = 0; i < COMING_COUNT; i++) {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "gallery-card locked coming";
-            btn.disabled = true;
-            const frame = document.createElement("div");
-            frame.className = "gallery-frame";
-            frame.appendChild(comingMosaic());
-            const lock = document.createElement("span");
-            lock.className = "gallery-lock";
-            lock.setAttribute("aria-hidden", "true");
-            lock.textContent = "🔒";
-            frame.appendChild(lock);
-            const title = document.createElement("div");
-            title.className = "gallery-title";
-            title.textContent = "Скоро";
-            btn.append(frame, title);
-            ui.galleryGrid.appendChild(btn);
-        }
-        return;
+        sheet.textContent = wing === 1
+            ? "Мастерская 1"
+            : (workshop2Open() ? "Мастерская 2" : "Мастерская 2 · после первой");
     }
     LEVELS.forEach((level, index) => {
+        if (wingOf(level) !== wing) return;
         const done = save.completed.includes(level.id);
         const open = isUnlocked(index);
         const btn = document.createElement("button");
@@ -280,18 +337,35 @@ function renderGallery() {
         btn.disabled = !open;
         const frame = document.createElement("div");
         frame.className = "gallery-frame";
+        applyFrameSkin(frame);
         frame.appendChild(miniMosaic(level, done || isDev()));
+        if (save.cleanRuns?.[level.id]) {
+            const badge = document.createElement("span");
+            badge.className = "gallery-clean";
+            badge.title = "Чистый проход";
+            badge.innerHTML = '<svg class="ico"><use href="#i-leaf"/></svg>';
+            frame.appendChild(badge);
+        }
         if (!open) {
             const lock = document.createElement("span");
             lock.className = "gallery-lock";
             lock.setAttribute("aria-hidden", "true");
-            lock.textContent = "🔒";
+            lock.innerHTML = '<svg class="ico"><use href="#i-lock"/></svg>';
             frame.appendChild(lock);
         }
+        const n = LEVELS.filter((item) => wingOf(item) < wing).length;
         const title = document.createElement("div");
         title.className = "gallery-title";
-        title.textContent = open ? `${index + 1}. ${level.title}` : "Закрыто";
+        title.textContent = open ? `${index - n + 1}. ${level.title}` : "Закрыто";
         btn.append(frame, title);
+        const best = save.bestMoves?.[level.id];
+        if (open && best) {
+            const meta = document.createElement("div");
+            meta.className = "gallery-meta";
+            const stars = save.bestStars?.[level.id] || starsFor(best, parFor(level));
+            meta.textContent = `${formatMoves(best)} · ${stars} из 3`;
+            btn.append(meta);
+        }
         if (open) {
             btn.addEventListener("click", () => enterPlay(index));
         }
@@ -299,7 +373,54 @@ function renderGallery() {
     });
 }
 
-function enterPlay(index, { fromHowto = false } = {}) {
+function renderShop() {
+    const grid = $("shop-grid");
+    const coinsEl = $("shop-coins");
+    if (coinsEl) coinsEl.textContent = `${save.coins} монет`;
+    if (!grid) return;
+    const owned = ownedFrames();
+    grid.replaceChildren();
+    FRAMES.forEach((item) => {
+        const have = owned.includes(item.id);
+        const on = currentFrame() === item.id;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `shop-card${on ? " on" : ""}`;
+        const swatch = document.createElement("div");
+        swatch.className = `shop-swatch gallery-frame skin-${item.id}`;
+        const name = document.createElement("div");
+        name.className = "shop-name";
+        name.textContent = item.name;
+        const price = document.createElement("div");
+        price.className = "shop-price";
+        price.textContent = on ? "Надето" : (have ? "Надеть" : `${item.price} монет`);
+        btn.append(swatch, name, price);
+        btn.addEventListener("click", () => {
+            if (have) {
+                save.frame = item.id;
+                persist();
+                renderShop();
+                toast(`Рамка «${item.name}»`);
+                return;
+            }
+            if (save.coins < item.price) {
+                toast("Нужно больше монет");
+                return;
+            }
+            save.coins -= item.price;
+            save.framesOwned = [...owned, item.id];
+            save.frame = item.id;
+            persist();
+            renderMenu();
+            renderShop();
+            toast(`Куплена рамка «${item.name}»`);
+        });
+        grid.appendChild(btn);
+    });
+}
+
+function enterPlay(index, { fromHowto = false, daily = false } = {}) {
+    if (daily) pendingDaily = true;
     if (!fromHowto && !save.seenHowto) {
         showScreen("howto");
         return;
@@ -308,8 +429,11 @@ function enterPlay(index, { fromHowto = false } = {}) {
         save.seenHowto = true;
         persist();
     }
+    const useDaily = pendingDaily;
+    pendingDaily = false;
+    const idx = useDaily ? dailyLevelIndex() : index;
     showScreen("play");
-    startLevel(index);
+    startLevel(idx, { daily: useDaily });
 }
 
 function shuffle(list, rand = Math.random) {
@@ -333,7 +457,11 @@ function cloneRun() {
         hand: state.hand,
         shuffles: state.shuffles,
         extraUsed: state.extraUsed,
-        extraAdUsed: state.extraAdUsed
+        extraAdUsed: state.extraAdUsed,
+        moves: state.moves,
+        usedShuffle: state.usedShuffle,
+        usedWand: state.usedWand,
+        dailyMode: state.dailyMode
     }));
 }
 
@@ -380,10 +508,11 @@ function topMatch(pile) {
     return a.color === b.color && b.color === c.color;
 }
 
-function startLevel(index) {
+function startLevel(index, { daily = false } = {}) {
     const safe = Math.max(0, Math.min(index, LEVELS.length - 1));
     const level = LEVELS[safe];
     state.levelIndex = safe;
+    state.dailyMode = Boolean(daily);
     state.mosaic = level.pieces.map((p) => ({
         color: p.color,
         w: p.w,
@@ -399,8 +528,13 @@ function startLevel(index) {
     state.history = [];
     state.won = false;
     state.claimed = false;
+    state.moves = 0;
+    state.usedShuffle = false;
+    state.usedWand = false;
+    state.payout = REWARD;
     ui.overlay.classList.remove("show");
     ui.frame.classList.remove("complete");
+    applyFrameSkin(ui.frame);
 
     const pile = shuffle(tilesFor(level).map(makeTile));
     state.stacks = Array.from({ length: STACK_COUNT }, () => []);
@@ -500,8 +634,12 @@ function renderHand() {
 
 function render() {
     const level = LEVELS[state.levelIndex];
-    ui.levelName.textContent = `Картина ${state.levelIndex + 1} · ${level.title}`;
+    ui.levelName.textContent = state.dailyMode
+        ? `Картина дня · ${level.title}`
+        : `Картина ${state.levelIndex + 1} · ${level.title}`;
+    applyFrameSkin(ui.frame);
     ui.coins.textContent = String(save.coins);
+    if (ui.moves) ui.moves.textContent = String(state.moves);
     ui.hint.textContent = state.hand
         ? "Теперь выложи её в канавку — в том числе в пустую"
         : HINT;
@@ -523,7 +661,7 @@ function render() {
     ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length);
     ui.wand.disabled = busy || state.won || paused;
     ui.extra.disabled = busy || state.won || paused || (state.extraUsed && state.extraAdUsed);
-    ui.mute.textContent = save.mute ? "🔇" : "🔊";
+    ui.mute.classList.toggle("is-muted", save.mute);
     ui.mute.setAttribute("aria-label", save.mute ? "Включить звук" : "Выключить звук");
     renderMosaic();
     renderStacks();
@@ -593,33 +731,251 @@ async function resolveMerges() {
     }
 }
 
+function noteMove() {
+    state.moves += 1;
+}
+
+function parFor(level) {
+    return tilesFor(level).length;
+}
+
+function starsFor(moves, par) {
+    if (moves <= par) return 3;
+    if (moves <= Math.ceil(par * 1.35)) return 2;
+    return 1;
+}
+
+function formatMoves(n) {
+    const m = Number(n) || 0;
+    const mod10 = m % 10;
+    const mod100 = m % 100;
+    let word = "ходов";
+    if (mod100 < 11 || mod100 > 14) {
+        if (mod10 === 1) word = "ход";
+        else if (mod10 >= 2 && mod10 <= 4) word = "хода";
+    }
+    return `${m} ${word}`;
+}
+
+function masteryScore() {
+    return LEVELS.reduce((sum, level, index) => {
+        const best = Number(save.bestMoves?.[level.id]);
+        if (!best) return sum;
+        return sum + Math.max(0, parFor(level) * 4 - best) + (index + 1);
+    }, 0);
+}
+
+function paintWinStars(count) {
+    if (!ui.winStars) return;
+    [...ui.winStars.querySelectorAll("span")].forEach((el, i) => {
+        el.classList.toggle("on", i < count);
+    });
+}
+
 function finishLevel() {
-    const id = LEVELS[state.levelIndex].id;
+    const level = LEVELS[state.levelIndex];
+    const id = level.id;
     const first = !save.completed.includes(id);
     if (first) save.completed.push(id);
-    save.unlocked = Math.max(save.unlocked, Math.min(state.levelIndex + 1, LEVELS.length - 1));
+    const gatedDaily = state.dailyMode && state.levelIndex > save.unlocked;
+    if (!gatedDaily) {
+        save.unlocked = Math.max(save.unlocked, Math.min(state.levelIndex + 1, LEVELS.length - 1));
+    }
+    const moves = state.moves;
+    const par = parFor(level);
+    const stars = starsFor(moves, par);
+    const prev = Number(save.bestMoves?.[id]) || 0;
+    const record = !prev || moves < prev;
+    const clean = !state.usedShuffle && !state.usedWand;
+    if (!save.bestMoves) save.bestMoves = {};
+    if (!save.bestStars) save.bestStars = {};
+    if (!save.cleanRuns) save.cleanRuns = {};
+    if (record) save.bestMoves[id] = moves;
+    save.bestStars[id] = Math.max(Number(save.bestStars[id]) || 0, stars);
+    let bonus = 0;
+    if (clean && !save.cleanRuns[id]) {
+        save.cleanRuns[id] = true;
+        bonus += CLEAN_BONUS;
+    } else if (clean) {
+        save.cleanRuns[id] = true;
+    }
+    const today = moscowDateKey();
+    if (state.dailyMode) {
+        const firstToday = save.dailyDate !== today;
+        if (firstToday) {
+            save.dailyDate = today;
+            save.dailyBest = moves;
+            bonus += DAILY_BONUS;
+        } else if (!save.dailyBest || moves < save.dailyBest) {
+            save.dailyBest = moves;
+        }
+        save.dailyLevel = id;
+        save.dailyStars = Math.max(Number(save.dailyStars) || 0, stars);
+        save.dailyClean = firstToday ? clean : Boolean(save.dailyClean) || clean;
+    }
+    state.payout = REWARD + bonus;
     persist();
+    platform.submitScore?.(masteryScore());
     track("complete", {
         platform: platform.id,
         level: id,
         first,
-        total: save.completed.length
+        total: save.completed.length,
+        moves,
+        record: record ? 1 : 0,
+        clean: clean ? 1 : 0,
+        name: platform.playerName?.() || ""
     });
+    return { moves, par, stars, record, prev, clean, bonus };
+}
+
+function paintRankList(rows, mine) {
+    const list = ui.winRankList;
+    if (!list) return;
+    list.replaceChildren();
+    const me = guestId();
+    const myName = platform.playerName?.() || "Ты";
+    let board = Array.isArray(rows) ? rows.slice() : [];
+    if (mine && Number(mine.moves) > 0) {
+        const found = board.findIndex((row) => row.id === me);
+        if (found >= 0) {
+            if (mine.moves < Number(board[found].moves) || !board[found].moves) {
+                board[found] = {
+                    ...board[found],
+                    name: board[found].name || myName,
+                    moves: mine.moves,
+                    clean: mine.clean ? 1 : board[found].clean
+                };
+            }
+        } else {
+            board.push({
+                id: me,
+                name: myName,
+                moves: mine.moves,
+                clean: mine.clean ? 1 : 0
+            });
+        }
+        board.sort((a, b) => Number(a.moves) - Number(b.moves));
+    }
+    if (!board.length) {
+        const empty = document.createElement("li");
+        empty.className = "rank-empty";
+        empty.textContent = "Ты первый в рейтинге этой картины.";
+        list.appendChild(empty);
+        return;
+    }
+    board.forEach((row, i) => {
+        const li = document.createElement("li");
+        if (row.id === me) li.classList.add("me");
+        const who = row.id === me ? "Ты" : row.name;
+        li.innerHTML = `<span class="rank-n">${i + 1}</span><span>${who}${row.clean ? " · лист" : ""}</span><span>${formatMoves(row.moves)}</span>`;
+        list.appendChild(li);
+    });
+}
+
+async function loadWinRanks(mine) {
+    const id = LEVELS[state.levelIndex]?.id;
+    const fallback = mine || (state.moves
+        ? { moves: state.moves, clean: !state.usedShuffle && !state.usedWand }
+        : { moves: save.dailyBest, clean: save.dailyClean });
+    if (ui.winRankList && !ui.winRankList.children.length) {
+        const loading = document.createElement("li");
+        loading.className = "rank-empty";
+        loading.textContent = "Загружаем рейтинг…";
+        ui.winRankList.appendChild(loading);
+    }
+    const rows = id ? await fetchRanks(id) : [];
+    paintRankList(rows, fallback);
+}
+
+function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimText, retryText, caption }) {
+    ui.winTitle.textContent = title;
+    ui.winCopy.textContent = copy;
+    if (ui.winMoves) ui.winMoves.textContent = movesText;
+    if (ui.winClean) {
+        ui.winClean.hidden = !clean;
+        ui.winClean.textContent = clean ? "Чистый проход" : "";
+    }
+    paintWinStars(stars);
+    ui.reward.textContent = rewardText;
+    ui.claim.textContent = claimText;
+    ui.retry.textContent = retryText;
+    if (ui.rankCaption) ui.rankCaption.textContent = caption;
+    if (ui.winRank) ui.winRank.hidden = platform.id !== "vk";
+    if (ui.winShare) ui.winShare.classList.toggle("show", platform.id === "vk");
+}
+
+function showDailyRecap() {
+    const index = dailyLevelIndex();
+    const level = LEVELS[index];
+    const moves = Number(save.dailyBest) || 0;
+    state.levelIndex = index;
+    state.dailyMode = true;
+    state.won = true;
+    state.claimed = true;
+    state.moves = moves;
+    showScreen("menu");
+    fillWinSheet({
+        title: "Результат дня",
+        copy: `«${level.title}» уже собрана. Можно смотреть рейтинг или улучшить ходы.`,
+        movesText: `Твой результат: ${formatMoves(moves)}`,
+        clean: Boolean(save.dailyClean),
+        stars: save.dailyStars || starsFor(moves, parFor(level)),
+        rewardText: "Награда уже получена",
+        claimText: "Закрыть",
+        retryText: "Сыграть ещё раз",
+        caption: "Рейтинг картины дня"
+    });
+    if (ui.winRankList) ui.winRankList.replaceChildren();
+    loadWinRanks({ moves, clean: save.dailyClean });
+    ui.overlay.classList.add("show");
 }
 
 function checkWin() {
     if (!state.mosaic.every((c) => c.filled)) return;
     state.won = true;
-    finishLevel();
+    const result = finishLevel();
     platform.gameplayStop();
     ui.frame.classList.add("complete");
     const last = state.levelIndex >= LEVELS.length - 1;
-    ui.winTitle.textContent = last ? "Мастерская полна!" : "Картина готова!";
-    ui.winCopy.textContent = last
-        ? "Все 18 картин собраны. Их можно снова открыть в галерее."
-        : "Мозаика собрана и повешена в галерею.";
-    ui.reward.textContent = `+${REWARD} монет`;
-    ui.claim.textContent = "Забрать награду";
+    const openedWing2 = wingOf(LEVELS[state.levelIndex]) === 1 && workshop2Open();
+    const bits = [`+${REWARD} монет`];
+    if (result.bonus) bits.push(`+${result.bonus} бонус`);
+    if (state.dailyMode) {
+        fillWinSheet({
+            title: "Картина дня готова!",
+            copy: "Вот твой результат и рейтинг. Повтор — только если хочешь улучшить ходы.",
+            movesText: result.record
+                ? `Новый рекорд: ${formatMoves(result.moves)}`
+                : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
+            clean: result.clean,
+            stars: result.stars,
+            rewardText: bits.join(" · "),
+            claimText: "Забрать награду",
+            retryText: "Улучшить результат",
+            caption: "Рейтинг картины дня"
+        });
+    } else {
+        fillWinSheet({
+            title: last ? "Королевство полно!" : (openedWing2 && LEVELS[state.levelIndex].id === "night" ? "Мастерская 1 готова!" : "Картина готова!"),
+            copy: last
+                ? "Все картины собраны. Их можно снова открыть в галерее."
+                : (openedWing2 && LEVELS[state.levelIndex].id === "night"
+                    ? "Вторая мастерская открыта в галерее."
+                    : "Мозаика собрана и повешена в галерею."),
+            movesText: result.record
+                ? `Новый рекорд: ${formatMoves(result.moves)}`
+                : `${formatMoves(result.moves)} · лучший ${formatMoves(result.prev || result.moves)}`,
+            clean: result.clean,
+            stars: result.stars,
+            rewardText: bits.join(" · "),
+            claimText: "Забрать награду",
+            retryText: "Ещё раз эту картину",
+            caption: "Рейтинг картины"
+        });
+    }
+    if (ui.winRankList) ui.winRankList.replaceChildren();
+    loadWinRanks({ moves: result.moves, clean: result.clean });
     render();
     beep(523, 0.12);
     setTimeout(() => beep(659, 0.12), 90);
@@ -631,6 +987,7 @@ async function placeOnStack(index) {
     if (paused || busy || state.won || !state.hand) return;
     busy = true;
     pushHistory();
+    noteMove();
     state.stacks[index].push(state.hand);
     state.hand = null;
     render();
@@ -649,6 +1006,7 @@ function pickFromStack(index) {
         return;
     }
     pushHistory();
+    noteMove();
     state.hand = pile.pop();
     beep(280, 0.05, "sine", 0.03);
     render();
@@ -668,6 +1026,7 @@ function drawDeck() {
         return;
     }
     pushHistory();
+    noteMove();
     state.hand = state.deck.shift();
     beep(300, 0.05, "sine", 0.03);
     render();
@@ -719,6 +1078,7 @@ function doShuffle() {
     state.stacks = sizes.map((n) => pool.splice(0, n));
     state.deck = pool;
     state.shuffles -= 1;
+    state.usedShuffle = true;
     syncBoosters();
     beep(280, 0.06);
     beep(340, 0.08);
@@ -798,7 +1158,9 @@ async function doWand() {
     }
     busy = true;
     pushHistory();
+    noteMove();
     state.wands -= 1;
+    state.usedWand = true;
     syncBoosters();
     const dest = cellEl.getBoundingClientRect();
     tileEls.forEach((el) => {
@@ -859,18 +1221,25 @@ async function refillWithAd(kind, okText) {
 }
 
 async function claimReward() {
+    if (state.claimed && (screen === "menu" || (state.dailyMode && screen !== "play"))) {
+        ui.overlay.classList.remove("show");
+        showScreen("menu");
+        return;
+    }
     if (!state.claimed) {
         state.claimed = true;
-        save.coins += REWARD;
+        save.coins += state.payout || REWARD;
         persist();
         ui.coins.textContent = String(save.coins);
+        renderMenu();
         const last = state.levelIndex >= LEVELS.length - 1;
-        ui.claim.textContent = last ? "В галерею" : "Следующая картина";
+        ui.claim.textContent = state.dailyMode || last ? "В меню" : "Следующая картина";
         beep(700, 0.12);
         return;
     }
-    if (state.levelIndex >= LEVELS.length - 1) {
-        showScreen("gallery");
+    if (state.dailyMode || state.levelIndex >= LEVELS.length - 1) {
+        ui.overlay.classList.remove("show");
+        showScreen(state.dailyMode ? "menu" : "gallery");
         return;
     }
     ui.claim.disabled = true;
@@ -896,21 +1265,26 @@ ui.shuffle.addEventListener("click", doShuffle);
 ui.wand.addEventListener("click", doWand);
 ui.extra.addEventListener("click", doExtra);
 ui.claim.addEventListener("click", claimReward);
-ui.retry.addEventListener("click", () => startLevel(state.levelIndex));
+ui.retry.addEventListener("click", () => {
+    ui.overlay.classList.remove("show");
+    enterPlay(state.levelIndex, { daily: state.dailyMode });
+});
 ui.winMenu.addEventListener("click", () => {
     if (state.won && !state.claimed) {
         state.claimed = true;
-        save.coins += REWARD;
+        save.coins += state.payout || REWARD;
         persist();
     }
+    ui.overlay.classList.remove("show");
     showScreen("menu");
 });
 ui.menuBtn.addEventListener("click", () => {
     if (state.won && !state.claimed) {
         state.claimed = true;
-        save.coins += REWARD;
+        save.coins += state.payout || REWARD;
         persist();
     }
+    ui.overlay.classList.remove("show");
     showScreen("menu");
 });
 ui.mute.addEventListener("click", () => {
@@ -918,8 +1292,30 @@ ui.mute.addEventListener("click", () => {
     persist();
     render();
 });
+ui.winRank?.addEventListener("click", async () => {
+    await loadWinRanks();
+    const ok = await platform.showLeaderboard?.(masteryScore());
+    if (!ok && !ui.winRankList?.children.length) {
+        const id = LEVELS[state.levelIndex].id;
+        const best = save.bestMoves?.[id];
+        toast(best ? `Личный рекорд этой картины: ${formatMoves(best)}` : "Собери картину — появится рекорд");
+    }
+});
+ui.winShare?.addEventListener("click", async () => {
+    const level = LEVELS[state.levelIndex];
+    const ok = await platform.share?.(
+        `Мозаэлия: «${level.title}» за ${formatMoves(state.moves)}. Чем меньше ходов — тем выше место!`
+    );
+    if (!ok) toast("Поделиться можно в VK");
+});
 
 ui.playBtn.addEventListener("click", () => enterPlay(nextPlayIndex()));
+$("daily-btn").addEventListener("click", () => {
+    if (dailyDoneToday()) showDailyRecap();
+    else enterPlay(dailyLevelIndex(), { daily: true });
+});
+$("shop-btn").addEventListener("click", () => showScreen("shop"));
+$("shop-back").addEventListener("click", () => showScreen("menu"));
 $("howto-btn").addEventListener("click", () => showScreen("howto"));
 $("howto-back").addEventListener("click", () => showScreen("menu"));
 $("gallery-btn").addEventListener("click", () => {
@@ -958,6 +1354,16 @@ $("dev-reset").addEventListener("click", () => {
     save.undos = UNDO_MAX;
     save.wands = WAND_MAX;
     save.extraUsed = false;
+    save.bestMoves = {};
+    save.bestStars = {};
+    save.cleanRuns = {};
+    save.framesOwned = ["oak"];
+    save.frame = "oak";
+    save.dailyDate = "";
+    save.dailyBest = 0;
+    save.dailyLevel = "";
+    save.dailyStars = 0;
+    save.dailyClean = false;
     persist();
     renderMenu();
     toast("Прогресс сброшен, картины в мастере всё ещё открыты");
@@ -995,7 +1401,9 @@ if (new URLSearchParams(location.search).has("shot")) {
         shuffles: SHUFFLE_MAX,
         undos: UNDO_MAX,
         wands: WAND_MAX,
-        extraUsed: false
+        extraUsed: false,
+        bestMoves: Object.fromEntries(LEVELS.slice(0, 6).map((level, i) => [level.id, 80 + i * 6])),
+        bestStars: Object.fromEntries(LEVELS.slice(0, 6).map((level) => [level.id, 2]))
     });
     const shotPlay = (index, fill) => {
         showScreen("play");
@@ -1020,6 +1428,8 @@ if (new URLSearchParams(location.search).has("shot")) {
         ui.winCopy.textContent = "Мозаика собрана и повешена в галерею.";
         ui.reward.textContent = `+${REWARD} монет`;
         ui.claim.textContent = "Забрать награду";
+        if (ui.winMoves) ui.winMoves.textContent = "Новый рекорд: 86 ходов";
+        paintWinStars(3);
         render();
         ui.overlay.classList.add("show");
     };
