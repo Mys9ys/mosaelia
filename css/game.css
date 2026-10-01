@@ -1658,11 +1658,6 @@ body {
     font-size: 13px;
 }
 
-#win-rank {
-    width: 100%;
-    margin-bottom: 8px;
-}
-
 #win-share {
     display: none;
 }
@@ -1679,8 +1674,7 @@ body {
 }
 
 .win-rewards[hidden],
-#claim[hidden],
-#win-rank[hidden] {
+#claim[hidden] {
     display: none !important;
 }
 
@@ -1707,6 +1701,10 @@ body {
 }
 
 .primary:active { transform: translateY(2px); box-shadow: 0 3px 0 #b85a42; }
+
+.sheet .primary {
+    margin-top: 8px;
+}
 
 .ghost-btn {
     margin-top: 10px;

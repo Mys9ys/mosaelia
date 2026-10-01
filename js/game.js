@@ -1,8 +1,8 @@
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=48";
-import { FRAMES } from "./frames.js?v=48";
-import { OCT_LEVELS } from "./october.js?v=48";
-import { HW_LEVELS } from "./halloween.js?v=48";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=48";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=50";
+import { FRAMES } from "./frames.js?v=50";
+import { OCT_LEVELS } from "./october.js?v=50";
+import { HW_LEVELS } from "./halloween.js?v=50";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=50";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
 
@@ -59,7 +59,6 @@ const ui = {
     moves: $("moves"),
     winMoves: $("win-moves"),
     winStars: $("win-stars"),
-    winRank: $("win-rank"),
     winShare: $("win-share"),
     winClean: $("win-clean"),
     winRankList: $("win-rank-list"),
@@ -1174,7 +1173,6 @@ function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimT
     if (rewards) rewards.hidden = hideRewards;
     ui.retry.textContent = retryText;
     if (ui.rankCaption) ui.rankCaption.textContent = caption;
-    if (ui.winRank) ui.winRank.hidden = platform.id !== "vk";
     if (ui.winShare) ui.winShare.classList.toggle("show", platform.id === "vk");
 }
 
@@ -1205,7 +1203,7 @@ function showPictureRanks(index) {
         copy: "Общий рейтинг всех игроков. Чем меньше ходов — тем выше место.",
         movesText: moves ? `Твой лучший: ${formatMoves(moves)}` : "Ещё нет личного результата",
         clean: Boolean(save.cleanRuns?.[level.id]),
-        stars: Number(save.bestStars?.[level.id]) || 0,
+        stars: 3,
         rewardText: "",
         claimText: "Закрыть",
         retryText: "Играть",
@@ -1240,11 +1238,12 @@ function showCalRecap(iso, back = "bonus") {
         copy: `${day} ${month.toLowerCase()}. Общий рейтинг всех игроков.`,
         movesText: moves ? `Твой результат: ${formatMoves(moves)}` : "Ещё нет результата",
         clean: Boolean(rec.clean),
-        stars: rec.stars || starsFor(moves, parFor(level)),
+        stars: 3,
         rewardText: "Награда уже получена",
         claimText: "Закрыть",
         retryText: "Сыграть ещё раз",
-        caption: "Рейтинг всех игроков"
+        caption: "Рейтинг всех игроков",
+        hideRewards: true
     });
     if (ui.winRankList) ui.winRankList.replaceChildren();
     loadWinRanks({ moves, clean: rec.clean });
@@ -1725,15 +1724,6 @@ ui.mute.addEventListener("click", () => {
     save.mute = !save.mute;
     persist();
     render();
-});
-ui.winRank?.addEventListener("click", async () => {
-    await loadWinRanks();
-    const ok = await platform.showLeaderboard?.(masteryScore());
-    if (!ok && !ui.winRankList?.children.length) {
-        const id = currentLevel().id;
-        const best = save.bestMoves?.[id];
-        toast(best ? `Личный рекорд этой картины: ${formatMoves(best)}` : "Собери картину — появится рекорд");
-    }
 });
 ui.winShare?.addEventListener("click", async () => {
     const level = currentLevel();
