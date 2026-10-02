@@ -1,8 +1,8 @@
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=53";
-import { FRAMES } from "./frames.js?v=53";
-import { OCT_LEVELS } from "./october.js?v=53";
-import { HW_LEVELS } from "./halloween.js?v=53";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=53";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=54";
+import { FRAMES } from "./frames.js?v=54";
+import { OCT_LEVELS } from "./october.js?v=54";
+import { HW_LEVELS } from "./halloween.js?v=54";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=54";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
 
@@ -328,6 +328,20 @@ function currentLevel() {
 
 function calRecord(iso) {
     return save.calDays?.[iso] || null;
+}
+
+function calPrevForIso(iso) {
+    const rec = calRecord(iso);
+    if (Number(rec?.moves) > 0) return rec;
+    if (iso === todayIso() && save.dailyDate === iso && Number(save.dailyBest) > 0) {
+        return {
+            moves: Number(save.dailyBest),
+            clean: save.dailyClean,
+            stars: save.dailyStars,
+            level: save.dailyLevel
+        };
+    }
+    return null;
 }
 
 function calAdOpen(iso) {
@@ -1094,9 +1108,8 @@ async function finishLevel() {
     if (state.dailyMode) {
         const iso = state.calIso || today;
         if (!save.calDays) save.calDays = {};
-        const prevDay = save.calDays[iso]
-            || (iso === today && Number(save.dailyBest) > 0 ? { moves: Number(save.dailyBest) } : null);
-        firstDay = !prevDay?.moves;
+        const prevDay = calPrevForIso(iso);
+        firstDay = !Number(prevDay?.moves);
         replay = !firstDay;
         if (firstDay) {
             if (newClean) bonus += CLEAN_BONUS;
