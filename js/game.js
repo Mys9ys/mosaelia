@@ -1,8 +1,8 @@
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=54";
-import { FRAMES } from "./frames.js?v=54";
-import { OCT_LEVELS } from "./october.js?v=54";
-import { HW_LEVELS } from "./halloween.js?v=54";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=54";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=55";
+import { FRAMES } from "./frames.js?v=55";
+import { OCT_LEVELS } from "./october.js?v=55";
+import { HW_LEVELS } from "./halloween.js?v=55";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=55";
 import { createPlatform } from "./platform/index.js";
 import { fetchRanks, guestId, track } from "./stats.js";
 
@@ -1344,7 +1344,11 @@ function renderCalendar() {
         if (st === "done") mark.textContent = "готово";
         else if (st === "today") mark.textContent = iso === today ? "сегодня" : level.title;
         else if (st === "open") mark.textContent = "играть";
-        else if (st === "missed") mark.textContent = "реклама";
+        else if (st === "missed") {
+            mark.classList.add("cal-ad-mark");
+            mark.innerHTML = '<svg class="ico cal-lock" aria-hidden="true"><use href="#i-lock"/></svg><svg class="ico cal-ad" aria-hidden="true"><use href="#i-ad"/></svg>';
+            btn.setAttribute("aria-label", `${d} октября · открыть за ролик`);
+        }
         else {
             mark.classList.add("cal-lock-mark");
             mark.innerHTML = '<svg class="ico cal-lock" aria-hidden="true"><use href="#i-lock"/></svg>';

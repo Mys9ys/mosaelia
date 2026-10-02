@@ -321,11 +321,24 @@ body {
 }
 
 .cal-lock,
+.cal-ad,
 .cal-mark .ico,
 .cal-mark .ico use {
     width: 14px;
     height: 14px;
     color: #9a7a62;
+}
+
+.cal-ad-mark {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.cal-day.missed .cal-ad {
+    color: #c45c45;
 }
 
 .shop-lead {
