@@ -56,7 +56,11 @@ export function createVk() {
                 if (!getBridge()) await loadScript(SDK_SRC, 8000);
                 bridge = getBridge();
                 if (!bridge) throw new Error("vkBridge missing");
-                await withTimeout(bridge.send("VKWebAppInit"), 8000, "VKWebAppInit");
+                try {
+                    await withTimeout(bridge.send("VKWebAppInit"), 8000, "VKWebAppInit");
+                } catch {
+                    /* head may have sent Init already */
+                }
                 try {
                     const info = await withTimeout(bridge.send("VKWebAppGetUserInfo"), 4000, "VKWebAppGetUserInfo");
                     displayName = String(info?.first_name || "").slice(0, 24);
