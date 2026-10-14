@@ -61,6 +61,7 @@ const NEWS_ID = "2026-10-15-v4";
 const NEWS_PAGE_COUNT = 2;
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
+window.__mosBoot?.prog(72, "Платформа…");
 const platform = await createPlatform();
 
 const $ = (id) => document.getElementById(id);
@@ -210,6 +211,7 @@ function defaultSave() {
     };
 }
 
+window.__mosBoot?.prog(86, "Прогресс…");
 const save = { ...defaultSave(), ...((await platform.load()) || {}) };
 
 const state = {
@@ -2494,6 +2496,9 @@ window.visualViewport?.addEventListener("resize", syncViewport);
 showScreen("menu");
 document.documentElement.lang = (platform.locale() || "ru").slice(0, 2);
 platform.ready();
+window.__mosGameReady = true;
+window.__mosBoot?.prog(100, "Готово");
+window.__mosBoot?.hide();
 track("launch", { platform: platform.id, total: save.completed.length });
 
 if (new URLSearchParams(location.search).has("shot")) {

@@ -188,9 +188,9 @@ function Finish-VkPack([string]$dest) {
 "@
     $headSdk = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{\s*var q = location\.search.*?</script>'
     $html = [regex]::Replace($html, $headSdk, "", 1)
-    $bodyBoot = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{\s*function startGame.*?</script>'
-    if ($html -notmatch 'function startGame') {
-        throw "index.html must include mos boot script (startGame)"
+    $bodyBoot = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{\s*var screen = document\.getElementById\("boot-screen"\).*?</script>\s*<script type="module" src="js/game\.js[^"]*"></script>'
+    if ($html -notmatch 'boot-screen') {
+        throw "index.html must include boot-screen loader"
     }
     $html = [regex]::Replace($html, $bodyBoot, "`n$vkBody", 1)
     if ($html -match '/sdk\.js' -or $html -notmatch 'vk-bridge\.min\.js') {

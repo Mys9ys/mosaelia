@@ -16,11 +16,20 @@
             document.head.appendChild(s);
         })();
     </script>
-    <link rel="stylesheet" href="css/game.css?v=74">
+    <link rel="stylesheet" href="css/game.css?v=75">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
 <body>
+    <div class="boot-screen" id="boot-screen" aria-live="polite" aria-busy="true">
+        <p class="boot-kicker">Королевство мозаик</p>
+        <p class="boot-title">Мозаэлия</p>
+        <div class="boot-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="boot-bar-fill" id="boot-fill"></span>
+        </div>
+        <p class="boot-status" id="boot-status">Загрузка…</p>
+        <button class="secondary boot-retry" type="button" id="boot-retry" hidden>Обновить</button>
+    </div>
     <svg class="svg-sprite" aria-hidden="true">
         <symbol id="i-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11.2 12 4.6l7.5 6.6v8.2a1.4 1.4 0 0 1-1.4 1.4h-4.2v-5.2h-3.8v5.2H5.9a1.4 1.4 0 0 1-1.4-1.4z"/></g></symbol>
         <symbol id="i-sound" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 9.2h3.1L12 5.8v12.4l-4.7-3.4H4.2a1 1 0 0 1-1-1V10.2a1 1 0 0 1 1-1zm11.2 1.1a3.2 3.2 0 0 1 0 3.4M17.8 8a6 6 0 0 1 0 8"/></g></symbol>
@@ -406,40 +415,78 @@
     <div class="fx" id="fx"></div>
     <script>
         (function () {
-            function startGame() {
-                var s = document.createElement("script");
-                s.type = "module";
-                s.src = "js/game.js?v=80";
-                document.body.appendChild(s);
+            var screen = document.getElementById("boot-screen");
+            var fill = document.getElementById("boot-fill");
+            var status = document.getElementById("boot-status");
+            var retry = document.getElementById("boot-retry");
+            var bar = screen && screen.querySelector(".boot-bar");
+            var done = false;
+            function prog(p, text) {
+                var n = Math.max(0, Math.min(100, Math.floor(Number(p) || 0)));
+                if (fill) fill.style.width = n + "%";
+                if (bar) bar.setAttribute("aria-valuenow", String(n));
+                if (text && status) status.textContent = text;
             }
-            function sendVkInit() {
+            function hide() {
+                if (done || !screen) return;
+                done = true;
+                screen.classList.add("boot-screen--hide");
+                screen.setAttribute("aria-busy", "false");
+                setTimeout(function () {
+                    screen.remove();
+                }, 420);
+            }
+            function fail(text) {
+                prog(100);
+                if (status) status.textContent = text || "Не удалось загрузить";
+                if (retry) retry.hidden = false;
+            }
+            window.__mosBoot = { prog: prog, hide: hide, fail: fail };
+            if (retry) {
+                retry.addEventListener("click", function () {
+                    location.reload();
+                });
+            }
+            window.addEventListener("error", function () {
+                if (!done && !window.__mosGameReady) fail("Ошибка загрузки. Нажмите «Обновить».");
+            });
+            window.addEventListener("unhandledrejection", function () {
+                if (!done && !window.__mosGameReady) fail("Ошибка запуска. Нажмите «Обновить».");
+            });
+            prog(10, "Старт…");
+            var q = location.search || "";
+            var vk = /[?&]vk_/.test(q);
+            if (!vk) {
+                prog(40, "Загрузка игры…");
+                return;
+            }
+            prog(18, "Подключение VK…");
+            function bridgeReady() {
+                prog(48, "Инициализация…");
                 try {
                     var b = window.vkBridge || window.bridge;
                     if (b) b.send("VKWebAppInit");
                 } catch (e) { /* vk.js retries */ }
-            }
-            var q = location.search || "";
-            var vk = /[?&]vk_/.test(q);
-            if (!vk) {
-                startGame();
-                return;
+                prog(62, "Загрузка игры…");
             }
             if (window.vkBridge || window.bridge) {
-                sendVkInit();
-                startGame();
+                bridgeReady();
                 return;
             }
             var bridge = document.createElement("script");
             bridge.src = "js/vendor/vk-bridge.min.js";
-            bridge.onload = function () {
-                sendVkInit();
-                startGame();
-            };
+            bridge.onload = bridgeReady;
             bridge.onerror = function () {
-                startGame();
+                prog(62, "Загрузка игры…");
             };
             document.head.appendChild(bridge);
+            setTimeout(function () {
+                if (!done && !window.__mosGameReady) {
+                    fail("Долго грузится. Нажмите «Обновить».");
+                }
+            }, 22000);
         })();
     </script>
+    <script type="module" src="js/game.js?v=81"></script>
 </body>
 </html>
