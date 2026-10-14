@@ -3,7 +3,7 @@ export function detectPlatform() {
     const forced = query.get("platform");
     if (forced === "yandex" || forced === "vk" || forced === "stub") return forced;
     if (window.YaGames) return "yandex";
-    if (query.has("vk_user_id") || query.has("vk_app_id") || query.has("sign")) return "vk";
+    if (/[?&]vk_/.test(location.search || "")) return "vk";
     const host = location.hostname;
     if (
         host.includes("yandex") ||

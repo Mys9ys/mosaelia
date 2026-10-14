@@ -80,7 +80,7 @@ foreach ($rel in $checkFiles) {
 }
 
 $html = Get-Content (Join-Path $root "index.html") -Raw -Encoding UTF8
-if ($html -notmatch 'href="css/game.css' -or $html -notmatch 'src="js/game.js') {
+if ($html -notmatch 'href="css/game.css' -or $html -notmatch 'js/game\.js') {
     $errors.Add("index.html must use relative css/js paths")
 }
 if ($html -match "mosaelia\.com") {
@@ -179,21 +179,20 @@ function Finish-VkPack([string]$dest) {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $indexPath = Join-Path $dest "index.html"
     $html = [System.IO.File]::ReadAllText($indexPath)
-    $vkLoader = @"
+    $vkBody = @"
     <script src="./js/vendor/vk-bridge.min.js"></script>
     <script>
         try { (window.vkBridge || window.bridge).send("VKWebAppInit"); } catch (e) {}
     </script>
+    <script type="module" src="js/game.js"></script>
 "@
-    $loaderPattern = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{.*?\}\)\(\);\s*</script>'
-    if ($html -match $loaderPattern) {
-        $html = [regex]::Replace($html, $loaderPattern, "`n$vkLoader", 1)
-    } else {
-        $html = $html.Replace("    <!-- Yandex Games SDK -->`r`n", "")
-        $html = $html.Replace("    <!-- Yandex Games SDK -->`n", "")
-        $html = $html.Replace("    <script src=""/sdk.js""></script>`r`n", "$vkLoader`r`n")
-        $html = $html.Replace("    <script src=""/sdk.js""></script>`n", "$vkLoader`n")
+    $headSdk = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{\s*var q = location\.search.*?</script>'
+    $html = [regex]::Replace($html, $headSdk, "", 1)
+    $bodyBoot = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{\s*function startGame.*?</script>'
+    if ($html -notmatch 'function startGame') {
+        throw "index.html must include mos boot script (startGame)"
     }
+    $html = [regex]::Replace($html, $bodyBoot, "`n$vkBody", 1)
     if ($html -match '/sdk\.js' -or $html -notmatch 'vk-bridge\.min\.js') {
         throw "VK index.html must load local vk-bridge and must not load /sdk.js"
     }

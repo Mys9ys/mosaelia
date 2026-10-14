@@ -9,12 +9,8 @@
     <script>
         (function () {
             var q = location.search || "";
-            var vk = /[?&]vk_(app_id|user_id)=/.test(q) || q.indexOf("sign=") !== -1;
-            if (vk) {
-                document.write('<script src="js/vendor/vk-bridge.min.js"><\/script>');
-                document.write('<script>try{(window.vkBridge||window.bridge).send("VKWebAppInit");}catch(e){}<\/script>');
-                return;
-            }
+            var vk = /[?&]vk_/.test(q);
+            if (vk) return;
             var s = document.createElement("script");
             s.src = "/sdk.js";
             document.head.appendChild(s);
@@ -408,6 +404,42 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=79"></script>
+    <script>
+        (function () {
+            function startGame() {
+                var s = document.createElement("script");
+                s.type = "module";
+                s.src = "js/game.js?v=80";
+                document.body.appendChild(s);
+            }
+            function sendVkInit() {
+                try {
+                    var b = window.vkBridge || window.bridge;
+                    if (b) b.send("VKWebAppInit");
+                } catch (e) { /* vk.js retries */ }
+            }
+            var q = location.search || "";
+            var vk = /[?&]vk_/.test(q);
+            if (!vk) {
+                startGame();
+                return;
+            }
+            if (window.vkBridge || window.bridge) {
+                sendVkInit();
+                startGame();
+                return;
+            }
+            var bridge = document.createElement("script");
+            bridge.src = "js/vendor/vk-bridge.min.js";
+            bridge.onload = function () {
+                sendVkInit();
+                startGame();
+            };
+            bridge.onerror = function () {
+                startGame();
+            };
+            document.head.appendChild(bridge);
+        })();
+    </script>
 </body>
 </html>
