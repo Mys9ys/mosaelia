@@ -26,10 +26,20 @@ function endpoint() {
     return STATS_URL || "";
 }
 
-function rankEndpoint() {
+function statsBase() {
     const collect = endpoint();
     if (!collect) return "";
-    return collect.replace(/collect\.php.*$/, "rank.php");
+    return collect.replace(/collect\.php.*$/, "");
+}
+
+function rankEndpoint() {
+    const base = statsBase();
+    return base ? `${base}rank.php` : "";
+}
+
+function leadersEndpoint() {
+    const base = statsBase();
+    return base ? `${base}leaders.php` : "";
 }
 
 export function track(ev, extra = {}) {
@@ -47,6 +57,7 @@ export function track(ev, extra = {}) {
         total: extra.total ?? null,
         moves: extra.moves ?? null,
         clean: extra.clean ? 1 : 0,
+        payout: extra.payout ?? null,
         name: extra.name || "",
         token: STATS_TOKEN
     });
@@ -63,13 +74,37 @@ export function track(ev, extra = {}) {
 
 export async function fetchRanks(level) {
     const url = rankEndpoint();
-    if (!url || !level) return [];
+    if (!url || !level) return { rows: [], total: 0, me: null };
     try {
-        const res = await fetch(`${url}?level=${encodeURIComponent(level)}`, { mode: "cors" });
-        if (!res.ok) return [];
+        const me = guestId();
+        const res = await fetch(`${url}?level=${encodeURIComponent(level)}&id=${encodeURIComponent(me)}`, { mode: "cors" });
+        if (!res.ok) return { rows: [], total: 0, me: null };
         const data = await res.json();
-        return Array.isArray(data?.rows) ? data.rows : [];
+        return {
+            rows: Array.isArray(data?.rows) ? data.rows : [],
+            total: Number(data?.total) || 0,
+            me: data?.me || null
+        };
     } catch {
-        return [];
+        return { rows: [], total: 0, me: null };
+    }
+}
+
+export async function fetchLeaders(board, period) {
+    const url = leadersEndpoint();
+    if (!url) return { rows: [], players: 0, me: null };
+    try {
+        const me = guestId();
+        const q = new URLSearchParams({ board, period, id: me });
+        const res = await fetch(`${url}?${q}`, { mode: "cors" });
+        if (!res.ok) return { rows: [], players: 0, me: null };
+        const data = await res.json();
+        return {
+            rows: Array.isArray(data?.rows) ? data.rows : [],
+            players: Number(data?.players) || 0,
+            me: data?.me || null
+        };
+    } catch {
+        return { rows: [], players: 0, me: null };
     }
 }

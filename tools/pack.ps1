@@ -9,6 +9,7 @@ $yandexFiles = @(
     "index.html",
     "css\game.css",
     "js\game.js",
+    "js\version.js",
     "js\levels.js",
     "js\frames.js",
     "js\calendar.js",
@@ -27,6 +28,7 @@ $vkFiles = @(
     "index.html",
     "css\game.css",
     "js\game.js",
+    "js\version.js",
     "js\levels.js",
     "js\frames.js",
     "js\calendar.js",
@@ -292,7 +294,7 @@ Copy-Game $vkDir $vkFiles
 
 [System.IO.File]::WriteAllText(
     (Join-Path $yandexDir "js\stats.js"),
-    "export function track() {}`nexport async function fetchRanks() { return []; }`nexport function guestId() { return `"yandex`"; }`n",
+    "export function track() {}`nexport async function fetchRanks() { return { rows: [], total: 0, me: null }; }`nexport async function fetchLeaders() { return { rows: [], players: 0, me: null }; }`nexport function guestId() { return `"yandex`"; }`n",
     $utf8
 )
 Finish-YandexPack $yandexDir

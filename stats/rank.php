@@ -19,4 +19,13 @@ require __DIR__ . "/ranks-lib.php";
 
 $level = (string) ($_GET["level"] ?? "");
 $rows = mosaelia_rank_rows($level, 10);
-echo json_encode(["ok" => 1, "level" => $level, "rows" => $rows], JSON_UNESCAPED_UNICODE);
+$total = mosaelia_rank_total($level);
+$meId = preg_replace("/[^a-zA-Z0-9_-]/", "", (string) ($_GET["id"] ?? ""));
+$me = $meId !== "" ? mosaelia_rank_me($level, $meId) : null;
+echo json_encode([
+    "ok" => 1,
+    "level" => $level,
+    "rows" => $rows,
+    "total" => $total,
+    "me" => $me
+], JSON_UNESCAPED_UNICODE);

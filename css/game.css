@@ -341,11 +341,139 @@ body {
     color: #c45c45;
 }
 
+.app-version {
+    margin: 18px 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: rgba(122, 90, 58, 0.55);
+    text-align: center;
+}
+
+.menu-rank {
+    margin: 10px 0 0;
+    max-width: 22em;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8d6230;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.shop-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 2px 10px;
+}
+
 .shop-lead {
     margin: 4px 2px 10px;
     font-size: 13px;
     color: var(--muted);
     text-align: center;
+}
+
+.shop-chest {
+    appearance: none;
+    border: 0;
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 4px 12px;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink);
+    background: linear-gradient(135deg, #fff8ee, #f3dcc0);
+    box-shadow: 0 8px 18px var(--shadow);
+}
+
+.shop-chest:disabled {
+    opacity: 0.72;
+    cursor: default;
+}
+
+.shop-chest.ready {
+    box-shadow: 0 0 0 2px #d4a45c, 0 8px 18px var(--shadow);
+}
+
+.shop-chest-ico {
+    grid-row: 1 / span 2;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    align-self: center;
+    background:
+        linear-gradient(180deg, #d4a45c, #8d6230);
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45);
+    position: relative;
+}
+
+.shop-chest-ico::after {
+    content: "";
+    position: absolute;
+    inset: 10px 8px 8px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #f3e6d4, #c99228);
+}
+
+.shop-chest-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.shop-chest-copy strong {
+    font-size: 16px;
+}
+
+.shop-chest-action {
+    font-size: 13px;
+    font-weight: 700;
+    color: #c45c45;
+}
+
+.shop-chest.ready .shop-chest-action {
+    color: #4e8141;
+}
+
+.shop-chest-loot {
+    grid-column: 2;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.shop-section {
+    margin: 8px 4px 10px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
+
+.shop-booster-card .shop-booster-ico {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.shop-booster-card .shop-booster-ico .ico {
+    width: 28px;
+    height: 28px;
+    color: #8d6230;
+}
+
+.shop-stock {
+    display: block;
+    margin-top: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
 }
 
 .shop-grid {
@@ -1669,6 +1797,109 @@ body {
     display: block;
     color: var(--muted);
     font-size: 13px;
+}
+
+.rank-foot {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #8d6230;
+    text-align: center;
+    line-height: 1.35;
+}
+
+.leaders-scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 12px 16px 28px;
+}
+
+.leaders-lead {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.leaders-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.leaders-tabs-metric .leaders-tab {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    padding: 8px 6px;
+}
+
+.leaders-tab {
+    border: 1px solid rgba(201, 164, 106, 0.55);
+    background: #fffaf3;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.leaders-tab.active {
+    background: linear-gradient(180deg, #f3e6d4, #e8c88a);
+    border-color: #c99228;
+    color: #5a3a18;
+}
+
+.leaders-me {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #fff3e0;
+    font-size: 13px;
+    font-weight: 800;
+    color: #8d6230;
+    text-align: center;
+}
+
+.leaders-list {
+    list-style: none;
+    margin: 0;
+    padding: 10px 12px;
+    background: #fff8ee;
+    border-radius: 16px;
+}
+
+.leaders-list li {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(201, 164, 106, 0.2);
+}
+
+.leaders-list li:last-child {
+    border-bottom: none;
+}
+
+.leaders-list li.me {
+    font-weight: 800;
+    color: #8d6230;
+}
+
+.leaders-list .rank-n {
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.leaders-foot {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
 }
 
 #win-share {

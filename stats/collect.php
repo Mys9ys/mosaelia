@@ -53,6 +53,11 @@ $moves = isset($data["moves"]) ? (int) $data["moves"] : null;
 $clean = !empty($data["clean"]) ? 1 : 0;
 $name = mosaelia_sanitize_name($data["name"] ?? "");
 
+$payout = isset($data["payout"]) ? (int) $data["payout"] : null;
+if ($payout !== null) {
+    $payout = max(0, min(500, $payout));
+}
+
 $row = [
     "t" => (int) ($data["t"] ?? (int) round(microtime(true) * 1000)),
     "id" => $id,
@@ -63,6 +68,8 @@ $row = [
     "total" => isset($data["total"]) ? (int) $data["total"] : null,
     "moves" => $moves,
     "clean" => $clean,
+    "payout" => $payout,
+    "name" => $name,
 ];
 
 if ($ev === "complete" && $level !== "" && $moves) {

@@ -8,7 +8,7 @@
     <title>Мозаэлия</title>
     <!-- Yandex Games SDK -->
     <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=55">
+    <link rel="stylesheet" href="css/game.css?v=57">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
@@ -50,6 +50,7 @@
                         <span id="menu-coins">0</span>
                     </span>
                 </div>
+                <p class="menu-rank" id="menu-rank"></p>
                 <p class="platform-chip" id="platform-chip" hidden></p>
                 <button class="hw-banner" id="hw-banner" type="button" hidden>
                     <img src="img/halloween-banner.jpg" alt="">
@@ -63,8 +64,10 @@
                 <button class="secondary" id="howto-btn" type="button">Как играть</button>
                 <button class="secondary" id="gallery-btn" type="button">Галерея</button>
                 <button class="secondary" id="bonus-btn" type="button">Бонусные</button>
-                <button class="secondary" id="shop-btn" type="button">Рамки</button>
+                <button class="secondary" id="shop-btn" type="button">Магазин</button>
+                <button class="secondary" id="leaders-btn" type="button">Рейтинг</button>
             </div>
+            <p class="app-version" id="app-version"></p>
         </section>
 
         <section class="screen" id="screen-howto" aria-label="Как играть">
@@ -143,17 +146,58 @@
             </nav>
         </section>
 
-        <section class="screen" id="screen-shop" aria-label="Рамки">
+        <section class="screen" id="screen-shop" aria-label="Магазин">
             <header class="hud">
                 <button class="icon-btn" id="shop-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
                 <div class="titles titles-pill">
-                    <div class="brand">Рамки</div>
+                    <div class="brand">Магазин</div>
                     <div class="level-name" id="shop-coins">0 монет</div>
                 </div>
                 <span class="hud-spacer"></span>
             </header>
-            <p class="shop-lead">Косметика для галереи и игры. На прогресс не влияет.</p>
-            <div class="shop-grid" id="shop-grid"></div>
+            <div class="shop-scroll">
+                <p class="shop-lead">Монеты за картины. Сундук — раз в 4 часа за ролик.</p>
+                <button type="button" class="shop-chest" id="shop-chest">
+                    <span class="shop-chest-ico" aria-hidden="true"></span>
+                    <span class="shop-chest-copy">
+                        <strong>Сундук</strong>
+                        <span class="shop-chest-action">Открыть за ролик</span>
+                    </span>
+                    <span class="shop-chest-loot">+30 монет · иногда усиление</span>
+                </button>
+                <h3 class="shop-section">Усиления</h3>
+                <div class="shop-grid shop-boosters" id="shop-boosters"></div>
+                <h3 class="shop-section">Рамки</h3>
+                <div class="shop-grid" id="shop-grid"></div>
+            </div>
+        </section>
+
+        <section class="screen" id="screen-leaders" aria-label="Рейтинг игроков">
+            <header class="hud">
+                <button class="icon-btn" id="leaders-back" type="button" aria-label="В меню"><svg class="ico"><use href="#i-home"/></svg></button>
+                <div class="titles titles-pill">
+                    <div class="brand">Рейтинг</div>
+                    <div class="level-name" id="leaders-sub">Соревнование</div>
+                </div>
+                <span class="hud-spacer"></span>
+            </header>
+            <div class="leaders-scroll">
+                <p class="leaders-lead">Звание в меню — твой путь по кампании. Здесь — таблицы всех игроков.</p>
+                <div class="leaders-tabs" role="tablist" aria-label="Период">
+                    <button type="button" class="leaders-tab" data-period="day">День</button>
+                    <button type="button" class="leaders-tab active" data-period="week">Неделя</button>
+                    <button type="button" class="leaders-tab" data-period="month">Месяц</button>
+                    <button type="button" class="leaders-tab" data-period="all">Всё время</button>
+                </div>
+                <div class="leaders-tabs leaders-tabs-metric" role="tablist" aria-label="Показатель">
+                    <button type="button" class="leaders-tab active" data-board="clears">Новые картины</button>
+                    <button type="button" class="leaders-tab" data-board="activity">Сборы</button>
+                    <button type="button" class="leaders-tab" data-board="coins">Монеты</button>
+                </div>
+                <p class="leaders-me" id="leaders-me" hidden></p>
+                <ol class="leaders-list" id="leaders-list"></ol>
+                <p class="leaders-foot" id="leaders-foot"></p>
+            </div>
         </section>
 
         <section class="screen" id="screen-play" aria-label="Игра">
@@ -242,6 +286,7 @@
                 <p class="win-clean" id="win-clean" hidden>Чистый проход</p>
                 <p class="rank-caption" id="rank-caption">Рейтинг картины</p>
                 <ol class="rank-list" id="win-rank-list"></ol>
+                <p class="rank-foot" id="rank-foot"></p>
                 <div class="win-rewards">
                     <div class="win-chip">+1 в галерею</div>
                     <div class="win-chip" id="reward">+50 монет</div>
@@ -283,6 +328,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=55"></script>
+    <script type="module" src="js/game.js?v=57"></script>
 </body>
 </html>

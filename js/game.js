@@ -1,10 +1,11 @@
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=55";
-import { FRAMES } from "./frames.js?v=55";
-import { OCT_LEVELS } from "./october.js?v=55";
-import { HW_LEVELS } from "./halloween.js?v=55";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=55";
+import { APP_VERSION_SHORT } from "./version.js";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=57";
+import { FRAMES } from "./frames.js?v=57";
+import { OCT_LEVELS } from "./october.js?v=57";
+import { HW_LEVELS } from "./halloween.js?v=57";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=57";
 import { createPlatform } from "./platform/index.js";
-import { fetchRanks, guestId, track } from "./stats.js";
+import { fetchLeaders, fetchRanks, guestId, track } from "./stats.js";
 
 const LEVELS = CAMPAIGN.concat(HW_LEVELS);
 
@@ -22,6 +23,15 @@ const DAILY_BONUS = 20;
 const RANK_PLACE_COIN = 10;
 const RANK_PLACE_CAP = 50;
 const AD_HELP_MAX = 3;
+const CHEST_INTERVAL_MS = 4 * 3600 * 1000;
+const CHEST_COINS = 30;
+const BOOSTER_STOCK_MAX = 9;
+const SHOP_BOOSTER = {
+    shuffles: { label: "Перемешать", price: 35, max: SHUFFLE_MAX },
+    undos: { label: "Отмена", price: 28, max: UNDO_MAX },
+    wands: { label: "Палочка", price: 48, max: WAND_MAX },
+    extraTokens: { label: "Слот", price: 55, max: 3 }
+};
 const NEWS_ID = "2026-10-01";
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
@@ -36,6 +46,7 @@ const ui = {
         gallery: $("screen-gallery"),
         bonus: $("screen-bonus"),
         shop: $("screen-shop"),
+        leaders: $("screen-leaders"),
         play: $("screen-play")
     },
     mosaic: $("mosaic"),
@@ -66,6 +77,11 @@ const ui = {
     winClean: $("win-clean"),
     winRankList: $("win-rank-list"),
     rankCaption: $("rank-caption"),
+    rankFoot: $("rank-foot"),
+    leadersList: $("leaders-list"),
+    leadersMe: $("leaders-me"),
+    leadersFoot: $("leaders-foot"),
+    leadersSub: $("leaders-sub"),
     shuffle: $("shuffle"),
     undo: $("undo"),
     extra: $("extra"),
@@ -154,6 +170,8 @@ function defaultSave() {
         calAds: {},
         adHelpDate: "",
         adHelps: 0,
+        chestAt: 0,
+        extraTokens: 0,
         seenNews: ""
     };
 }
@@ -179,7 +197,9 @@ const state = {
     usedWand: false,
     dailyMode: false,
     calIso: "",
-    payout: REWARD
+    payout: REWARD,
+    leaderBoard: "clears",
+    leaderPeriod: "week"
 };
 
 function persist() {
@@ -284,6 +304,62 @@ function workshop2Open() {
 
 function workshop3Open() {
     return isDev() || LEVELS.filter((level) => wingOf(level) === 2).every((level) => save.completed.includes(level.id));
+}
+
+function campaignCompletedCount() {
+    return save.completed.filter((id) => {
+        const level = LEVELS.find((item) => item.id === id);
+        return level && wingOf(level) < 4;
+    }).length;
+}
+
+function playerTitle() {
+    const n = campaignCompletedCount();
+    if (n >= 54) return "Король мозаик";
+    if (n >= 36) return "Хранитель галереи";
+    if (n >= 18) return "Мастер II";
+    if (n >= 6) return "Мастер I";
+    if (n >= 1) return "Ученик";
+    return "Новичок";
+}
+
+function playerTitleProgress() {
+    const n = campaignCompletedCount();
+    const steps = [1, 6, 18, 36, 54];
+    const titles = ["Ученик", "Мастер I", "Мастер II", "Хранитель галереи", "Король мозаик"];
+    if (n >= 54) return { title: playerTitle(), next: null, cur: n, goal: 54 };
+    for (let i = 0; i < steps.length; i++) {
+        if (n < steps[i]) {
+            return {
+                title: playerTitle(),
+                next: titles[i],
+                cur: n,
+                goal: steps[i]
+            };
+        }
+    }
+    return { title: playerTitle(), next: null, cur: n, goal: 54 };
+}
+
+function chestReady() {
+    return Date.now() - (Number(save.chestAt) || 0) >= CHEST_INTERVAL_MS;
+}
+
+function chestWaitText() {
+    if (chestReady()) return "Открыть за ролик";
+    const left = CHEST_INTERVAL_MS - (Date.now() - Number(save.chestAt));
+    const h = Math.floor(left / 3600000);
+    const m = Math.max(1, Math.ceil((left % 3600000) / 60000));
+    if (h > 0) return `Через ${h} ч ${m} мин`;
+    return `Через ${m} мин`;
+}
+
+function addBoosterStock(key, amount = 1) {
+    const spec = SHOP_BOOSTER[key];
+    if (!spec) return;
+    const cap = key === "extraTokens" ? spec.max : BOOSTER_STOCK_MAX;
+    const base = key === "extraTokens" ? Number(save.extraTokens) || 0 : readCount(save[key], spec.max);
+    save[key] = Math.min(cap, base + amount);
 }
 
 function playableLevels() {
@@ -478,6 +554,7 @@ function showScreen(name) {
     if (name === "gallery") renderGallery();
     if (name === "bonus") renderCalendar();
     if (name === "shop") renderShop();
+    if (name === "leaders") renderLeaders();
     if (name === "play" && !state.won) platform.gameplayStart();
     else platform.gameplayStop();
 }
@@ -488,7 +565,16 @@ function renderMenu() {
     ui.menuProgress.textContent = isDev()
         ? `Мастер · ${save.completed.length} / ${LEVELS.length}`
         : `Картины ${donePlay} / ${playable.length}`;
+    const rankEl = $("menu-rank");
+    if (rankEl) {
+        const prog = playerTitleProgress();
+        rankEl.textContent = prog.next
+            ? `Звание: ${prog.title} · до «${prog.next}» ${prog.cur}/${prog.goal}`
+            : `Звание: ${prog.title}`;
+    }
     ui.menuCoins.textContent = String(save.coins);
+    const verEl = $("app-version");
+    if (verEl) verEl.textContent = APP_VERSION_SHORT;
     const today = todayIso();
     const daily = OCT_LEVELS[dailyLevelIndex()];
     const { m, day } = moscowParts();
@@ -626,8 +712,51 @@ function renderGallery() {
 
 function renderShop() {
     const grid = $("shop-grid");
+    const boosters = $("shop-boosters");
+    const chestBtn = $("shop-chest");
     const coinsEl = $("shop-coins");
     if (coinsEl) coinsEl.textContent = `${save.coins} монет`;
+    if (chestBtn) {
+        chestBtn.disabled = !chestReady();
+        chestBtn.classList.toggle("ready", chestReady());
+        const label = chestBtn.querySelector(".shop-chest-action");
+        if (label) label.textContent = chestWaitText();
+    }
+    if (boosters) {
+        boosters.replaceChildren();
+        const icons = { shuffles: "#i-shuffle", undos: "#i-undo", wands: "#i-wand", extraTokens: "#i-plus" };
+        Object.entries(SHOP_BOOSTER).forEach(([key, spec]) => {
+            const stock = key === "extraTokens"
+                ? Number(save.extraTokens) || 0
+                : readCount(save[key], spec.max);
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "shop-card shop-booster-card";
+            btn.innerHTML = `<span class="shop-booster-ico"><svg class="ico"><use href="${icons[key]}"/></svg></span>
+                <span class="shop-name">${spec.label}</span>
+                <span class="shop-price">${spec.price} монет</span>
+                <span class="shop-stock">запас ${stock}</span>`;
+            btn.addEventListener("click", () => {
+                if (save.coins < spec.price) {
+                    toast("Нужно больше монет");
+                    return;
+                }
+                const cap = key === "extraTokens" ? spec.max : BOOSTER_STOCK_MAX;
+                if (stock >= cap) {
+                    toast("Запас полный");
+                    return;
+                }
+                save.coins -= spec.price;
+                addBoosterStock(key, 1);
+                persist();
+                renderMenu();
+                renderShop();
+                if (screen === "play") applyBoostersFromSave();
+                toast(`+1 ${spec.label.toLowerCase()}`);
+            });
+            boosters.appendChild(btn);
+        });
+    }
     if (!grid) return;
     const owned = ownedFrames();
     grid.replaceChildren();
@@ -790,8 +919,10 @@ function startLevel(index, { daily = false, calIso = "", back } = {}) {
         filled: false
     }));
     state.hand = null;
-    applyBoostersFromSave();
+    save.extraUsed = false;
+    state.extraUsed = false;
     state.extraAdUsed = false;
+    applyBoostersFromSave();
     state.history = [];
     state.won = false;
     state.claimed = false;
@@ -923,11 +1054,16 @@ function render() {
     const shuffleAd = state.shuffles <= 0;
     const undoAd = state.undos <= 0;
     const wandAd = state.wands <= 0;
-    const extraAd = state.extraUsed && !state.extraAdUsed;
+    const extraToken = Number(save.extraTokens) > 0;
+    const extraAd = state.extraUsed && !state.extraAdUsed && !extraToken;
     paintUses(ui.shuffleUses, state.shuffles, { wantAd: shuffleAd });
     paintUses(ui.undoUses, state.undos, { wantAd: undoAd });
     paintUses(ui.wandUses, state.wands, { wantAd: wandAd });
-    paintUses(ui.extraUses, extraAd ? 0 : 1, { hidden: state.extraUsed && state.extraAdUsed, wantAd: extraAd });
+    paintUses(
+        ui.extraUses,
+        extraAd ? 0 : (state.extraUsed && extraToken ? Number(save.extraTokens) : 1),
+        { hidden: state.extraUsed && state.extraAdUsed, wantAd: extraAd }
+    );
     ui.shuffle.classList.toggle("booster-ad", shuffleAd && !adWait);
     ui.undo.classList.toggle("booster-ad", undoAd && !adWait);
     ui.wand.classList.toggle("booster-ad", wandAd && !adWait);
@@ -939,7 +1075,7 @@ function render() {
     ui.shuffle.disabled = busy || state.won || paused;
     ui.undo.disabled = busy || state.won || paused || (state.undos <= 0 && !state.history.length && !undoAd);
     ui.wand.disabled = busy || state.won || paused;
-    ui.extra.disabled = busy || state.won || paused || (state.extraUsed && state.extraAdUsed);
+    ui.extra.disabled = busy || state.won || paused || (state.extraUsed && state.extraAdUsed && !extraToken);
     ui.mute.classList.toggle("is-muted", save.mute);
     ui.mute.setAttribute("aria-label", save.mute ? "Включить звук" : "Выключить звук");
     renderMosaic();
@@ -1066,9 +1202,107 @@ function rankPlace(rows, id, moves) {
     return i >= 0 ? i + 1 : 0;
 }
 
+function playersWord(n) {
+    const x = Math.abs(Number(n) || 0) % 100;
+    const y = x % 10;
+    if (x > 10 && x < 20) return "игроков";
+    if (y > 1 && y < 5) return "игрока";
+    if (y === 1) return "игрок";
+    return "игроков";
+}
+
+function pictureRankFoot(pack, mine) {
+    const total = Number(pack?.total) || 0;
+    const me = pack?.me;
+    if (me?.place && total > 0) {
+        return `${me.place}-е место из ${total} ${playersWord(total)}`;
+    }
+    const moves = Number(mine?.moves) || 0;
+    if (moves > 0 && total > 0) {
+        const place = rankPlace(pack?.rows || [], guestId(), moves);
+        if (place > 0) return `${place}-е место из ${total} ${playersWord(total)}`;
+    }
+    if (total > 0) return `Картину прошли: ${total} ${playersWord(total)}`;
+    return "";
+}
+
+function setRankFoot(text) {
+    if (!ui.rankFoot) return;
+    if (text) {
+        ui.rankFoot.textContent = text;
+        ui.rankFoot.hidden = false;
+    } else {
+        ui.rankFoot.textContent = "";
+        ui.rankFoot.hidden = true;
+    }
+}
+
+const LEADER_BOARD_COPY = {
+    clears: { title: "Новые картины", unit: "картин", hint: "Первое прохождение уровня за период." },
+    activity: { title: "Сборы", unit: "сборов", hint: "Любое завершение мозаики, включая повторы." },
+    coins: { title: "Монеты с картин", unit: "монет", hint: "Награды за победы. Сундук и магазин не считаются." }
+};
+
+const LEADER_PERIOD_COPY = { day: "за день", week: "за неделю", month: "за месяц", all: "за всё время" };
+
+async function renderLeaders() {
+    const board = state.leaderBoard;
+    const period = state.leaderPeriod;
+    document.querySelectorAll(".leaders-tab[data-period]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.period === period);
+    });
+    document.querySelectorAll(".leaders-tab[data-board]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.board === board);
+    });
+    const meta = LEADER_BOARD_COPY[board] || LEADER_BOARD_COPY.clears;
+    const when = LEADER_PERIOD_COPY[period] || "";
+    if (ui.leadersSub) ui.leadersSub.textContent = `${meta.title} ${when}`.trim();
+    if (ui.leadersList) {
+        ui.leadersList.replaceChildren();
+        const loading = document.createElement("li");
+        loading.className = "rank-empty";
+        loading.textContent = "Загружаем…";
+        ui.leadersList.appendChild(loading);
+    }
+    const pack = await fetchLeaders(board, period);
+    const meId = guestId();
+    if (ui.leadersList) {
+        ui.leadersList.replaceChildren();
+        if (!pack.rows.length) {
+            const empty = document.createElement("li");
+            empty.className = "rank-empty";
+            empty.textContent = "Пока пусто — сыграй картину и обнови таблицу.";
+            ui.leadersList.appendChild(empty);
+        } else {
+            pack.rows.forEach((row) => {
+                const li = document.createElement("li");
+                if (row.id === meId) li.classList.add("me");
+                const who = row.id === meId ? "Ты" : row.name;
+                li.innerHTML = `<span class="rank-n">${row.place}</span><span>${who}</span><span>${row.score}</span>`;
+                ui.leadersList.appendChild(li);
+            });
+        }
+    }
+    if (ui.leadersMe) {
+        if (pack.me?.place) {
+            ui.leadersMe.hidden = false;
+            ui.leadersMe.textContent = `Ты: ${pack.me.place}-е место · ${pack.me.score} ${meta.unit}`;
+        } else {
+            ui.leadersMe.hidden = true;
+            ui.leadersMe.textContent = "";
+        }
+    }
+    if (ui.leadersFoot) {
+        const n = pack.players || pack.rows.length;
+        ui.leadersFoot.textContent = n
+            ? `${meta.hint} В таблице ${n} ${playersWord(n)}.`
+            : meta.hint;
+    }
+}
+
 async function rankClimbPrize(levelId, oldMoves, newMoves) {
     if (!oldMoves || !(newMoves < oldMoves)) return 0;
-    const rows = await fetchRanks(levelId);
+    const { rows } = await fetchRanks(levelId);
     const me = guestId();
     const oldPlace = rankPlace(rows, me, oldMoves);
     const newPlace = rankPlace(rows, me, newMoves);
@@ -1152,7 +1386,8 @@ async function finishLevel() {
         moves,
         record: record ? 1 : 0,
         clean: clean ? 1 : 0,
-        name: platform.playerName?.() || ""
+        name: platform.playerName?.() || "",
+        payout: state.payout || 0
     });
     return { moves, par, stars, record, prev, clean, bonus, payout, firstDay, rankPrize, replay };
 }
@@ -1212,8 +1447,9 @@ async function loadWinRanks(mine) {
         loading.textContent = "Загружаем рейтинг…";
         ui.winRankList.appendChild(loading);
     }
-    const rows = id ? await fetchRanks(id) : [];
-    paintRankList(rows, fallback);
+    const pack = id ? await fetchRanks(id) : { rows: [], total: 0, me: null };
+    paintRankList(pack.rows, fallback);
+    setRankFoot(pictureRankFoot(pack, fallback));
 }
 
 function fillWinSheet({ title, copy, movesText, clean, stars, rewardText, claimText, retryText, caption, hideRewards = false }) {
@@ -1681,6 +1917,18 @@ function doExtra() {
     if (paused || busy || state.won) return;
     if (state.extraUsed) {
         if (state.extraAdUsed) return;
+        if (Number(save.extraTokens) > 0) {
+            pushHistory();
+            save.extraTokens -= 1;
+            state.extraAdUsed = true;
+            state.stacks.push([]);
+            persist();
+            syncBoosters();
+            beep(500, 0.08);
+            render();
+            toast("Ещё одна канавка");
+            return;
+        }
         refillWithAd("extra", "Ещё одна канавка");
         return;
     }
@@ -1691,6 +1939,41 @@ function doExtra() {
     beep(500, 0.08);
     render();
     toast("Ещё одна канавка");
+}
+
+async function openShopChest() {
+    if (!chestReady()) {
+        toast(chestWaitText());
+        renderShop();
+        return;
+    }
+    busy = true;
+    renderShop();
+    const ok = await runAd("rewarded");
+    busy = false;
+    if (!ok) {
+        toast("Ролик не показался");
+        renderShop();
+        return;
+    }
+    save.chestAt = Date.now();
+    save.coins += CHEST_COINS;
+    const roll = Math.random();
+    let extra = "";
+    if (roll < 0.4) {
+        addBoosterStock("shuffles", 1);
+        extra = " и перемешивание";
+    } else if (roll < 0.7) {
+        addBoosterStock("undos", 1);
+        extra = " и отмена";
+    } else if (roll < 0.85) {
+        addBoosterStock("wands", 1);
+        extra = " и палочка";
+    }
+    persist();
+    renderMenu();
+    renderShop();
+    toast(`Сундук: +${CHEST_COINS} монет${extra}`);
 }
 
 async function refillWithAd(kind, okText) {
@@ -1750,11 +2033,6 @@ async function claimReward() {
         closeWinSheet();
         return;
     }
-    ui.claim.disabled = true;
-    if (save.completed.length > 1) {
-        await runAd("interstitial");
-    }
-    ui.claim.disabled = false;
     startLevel(nxt);
 }
 
@@ -1814,6 +2092,21 @@ $("daily-btn").addEventListener("click", () => {
 });
 $("shop-btn").addEventListener("click", () => showScreen("shop"));
 $("shop-back").addEventListener("click", () => showScreen("menu"));
+$("leaders-btn").addEventListener("click", () => showScreen("leaders"));
+$("leaders-back").addEventListener("click", () => showScreen("menu"));
+document.querySelectorAll(".leaders-tab[data-period]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        state.leaderPeriod = btn.dataset.period || "week";
+        renderLeaders();
+    });
+});
+document.querySelectorAll(".leaders-tab[data-board]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        state.leaderBoard = btn.dataset.board || "clears";
+        renderLeaders();
+    });
+});
+$("shop-chest")?.addEventListener("click", () => openShopChest());
 $("howto-btn").addEventListener("click", () => showScreen("howto"));
 $("howto-back").addEventListener("click", () => showScreen("menu"));
 $("gallery-btn").addEventListener("click", () => {
