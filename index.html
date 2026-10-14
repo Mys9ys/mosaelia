@@ -6,9 +6,16 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#f6efe4">
     <title>Мозаэлия</title>
-    <!-- Yandex Games SDK -->
-    <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=72">
+    <script>
+        (function () {
+            var q = location.search || "";
+            var vk = /[?&]vk_(app_id|user_id)=/.test(q) || q.indexOf("sign=") !== -1;
+            var s = document.createElement("script");
+            s.src = vk ? "js/vendor/vk-bridge.min.js" : "/sdk.js";
+            document.head.appendChild(s);
+        })();
+    </script>
+    <link rel="stylesheet" href="css/game.css?v=74">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
@@ -359,23 +366,24 @@
                 </button>
                 <div class="news-page" data-news-page="0">
                     <p class="news-kicker">v4.0</p>
-                    <h2>Рейтинги магазина</h2>
-                    <p class="news-lead">Свежие таблицы — можно закрыть сразу или переключить точками внизу.</p>
+                    <h2>Магазин и рейтинги</h2>
+                    <p class="news-lead">Большое обновление — коротко, по делу.</p>
                     <ul class="news-list">
-                        <li><strong>Траты монет.</strong> Кто больше всех тратит в магазине на бусты и рамки.</li>
-                        <li><strong>Рамки и бусты.</strong> Отдельные рейтинги покупок — по иконкам, как на поле.</li>
-                        <li><strong>Использование.</strong> Сколько раз жмут бусты в партии — тоже в «Рейтинг».</li>
+                        <li><strong>Без навязчивой рекламы.</strong> Убрали ролик на «Следующая картина». Ролик — только по желанию.</li>
+                        <li><strong>Магазин.</strong> Монеты с картин — на бусты и рамки. Сундук раз в 4 часа.</li>
+                        <li><strong>Рейтинги.</strong> Новые картины, монеты, покупки и использование бустов — в меню «Рейтинг».</li>
+                        <li><strong>Траты и рамки.</strong> Отдельные таблицы: кто тратит монеты и покупает рамки.</li>
                     </ul>
                 </div>
                 <div class="news-page" data-news-page="1" hidden>
                     <p class="news-kicker">v3.0</p>
-                    <h2>Магазин и рейтинги</h2>
-                    <p class="news-lead">Если пропустили прошлое обновление — напомним.</p>
+                    <h2>Картина дня и календарь</h2>
+                    <p class="news-lead">Если давно не заходили — напомним базу.</p>
                     <ul class="news-list">
-                        <li><strong>Без навязчивой рекламы.</strong> Убрали ролик на «Следующая картина». Ролик — только по желанию.</li>
-                        <li><strong>Магазин.</strong> Монеты с картин — на бусты и рамки. Сундук раз в 4 часа.</li>
-                        <li><strong>Рейтинги.</strong> Новые картины, монеты, покупки — в меню «Рейтинг».</li>
-                        <li><strong>Картина дня и календарь.</strong> Ежедневная мозаика и бонусные уровни.</li>
+                        <li><strong>Картина дня.</strong> Каждый день своя мозаика и зачёт по ходам.</li>
+                        <li><strong>Бонусные.</strong> Календарь: сегодня открыто, пропуск — за ролик.</li>
+                        <li><strong>Рамки.</strong> Косметика за монеты, на силу не влияет.</li>
+                        <li><strong>Вторая мастерская.</strong> Ещё 18 картин после первой.</li>
                     </ul>
                 </div>
                 <div class="news-pager" role="tablist" aria-label="Страницы новостей">
@@ -395,6 +403,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=73"></script>
+    <script type="module" src="js/game.js?v=76"></script>
 </body>
 </html>

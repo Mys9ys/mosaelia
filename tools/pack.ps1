@@ -143,8 +143,8 @@ function Finish-YandexPack([string]$dest) {
         )
         [System.IO.File]::WriteAllText($indexPath, $html, $utf8)
     }
-    if ($html -notmatch 'src="/sdk.js"') {
-        throw "Yandex index.html must include /sdk.js"
+    if ($html -notmatch '/sdk\.js') {
+        throw "Yandex index.html must reference /sdk.js"
     }
 
     Get-ChildItem $dest -Recurse -File -Include *.html, *.js | ForEach-Object {
@@ -179,11 +179,17 @@ function Finish-VkPack([string]$dest) {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $indexPath = Join-Path $dest "index.html"
     $html = [System.IO.File]::ReadAllText($indexPath)
-    $html = $html.Replace("    <!-- Yandex Games SDK -->`r`n", "")
-    $html = $html.Replace("    <!-- Yandex Games SDK -->`n", "")
-    $html = $html.Replace("    <script src=""/sdk.js""></script>`r`n", "    <script src=""./js/vendor/vk-bridge.min.js""></script>`r`n")
-    $html = $html.Replace("    <script src=""/sdk.js""></script>`n", "    <script src=""./js/vendor/vk-bridge.min.js""></script>`n")
-    if ($html -match "/sdk.js" -or $html -notmatch "vk-bridge\.min\.js") {
+    $vkLoader = '    <script src="./js/vendor/vk-bridge.min.js"></script>'
+    $loaderPattern = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{.*?\}\)\(\);\s*</script>'
+    if ($html -match $loaderPattern) {
+        $html = [regex]::Replace($html, $loaderPattern, "`n$vkLoader", 1)
+    } else {
+        $html = $html.Replace("    <!-- Yandex Games SDK -->`r`n", "")
+        $html = $html.Replace("    <!-- Yandex Games SDK -->`n", "")
+        $html = $html.Replace("    <script src=""/sdk.js""></script>`r`n", "$vkLoader`r`n")
+        $html = $html.Replace("    <script src=""/sdk.js""></script>`n", "$vkLoader`n")
+    }
+    if ($html -match '/sdk\.js' -or $html -notmatch 'vk-bridge\.min\.js') {
         throw "VK index.html must load local vk-bridge and must not load /sdk.js"
     }
     [System.IO.File]::WriteAllText($indexPath, $html, $utf8)
@@ -312,8 +318,8 @@ Copy-Game $vkDir $vkFiles
 Finish-YandexPack $yandexDir
 
 $packedHtml = Get-Content (Join-Path $yandexDir "index.html") -Raw -Encoding UTF8
-if ($packedHtml -notmatch 'src="/sdk.js"') {
-    throw "packed Yandex index.html must include /sdk.js"
+if ($packedHtml -notmatch '/sdk\.js') {
+    throw "packed Yandex index.html must reference /sdk.js"
 }
 
 Finish-VkPack $vkDir

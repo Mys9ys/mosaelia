@@ -351,32 +351,34 @@ function campaignCompletedCount() {
     }).length;
 }
 
+const TITLE_STEPS = [10, 24, 50, 75, 100];
+
 function playerTitle() {
     const n = campaignCompletedCount();
-    if (n >= 54) return "Король мозаик";
-    if (n >= 36) return "Хранитель галереи";
-    if (n >= 18) return "Мастер II";
-    if (n >= 6) return "Мастер I";
-    if (n >= 1) return "Ученик";
+    if (n >= TITLE_STEPS[4]) return "Король мозаик";
+    if (n >= TITLE_STEPS[3]) return "Хранитель галереи";
+    if (n >= TITLE_STEPS[2]) return "Мастер II";
+    if (n >= TITLE_STEPS[1]) return "Мастер I";
+    if (n >= TITLE_STEPS[0]) return "Ученик";
     return "Новичок";
 }
 
 function playerTitleProgress() {
     const n = campaignCompletedCount();
-    const steps = [1, 6, 18, 36, 54];
     const titles = ["Ученик", "Мастер I", "Мастер II", "Хранитель галереи", "Король мозаик"];
-    if (n >= 54) return { title: playerTitle(), next: null, cur: n, goal: 54 };
-    for (let i = 0; i < steps.length; i++) {
-        if (n < steps[i]) {
+    const max = TITLE_STEPS[TITLE_STEPS.length - 1];
+    if (n >= max) return { title: playerTitle(), next: null, cur: n, goal: max };
+    for (let i = 0; i < TITLE_STEPS.length; i++) {
+        if (n < TITLE_STEPS[i]) {
             return {
                 title: playerTitle(),
                 next: titles[i],
                 cur: n,
-                goal: steps[i]
+                goal: TITLE_STEPS[i]
             };
         }
     }
-    return { title: playerTitle(), next: null, cur: n, goal: 54 };
+    return { title: playerTitle(), next: null, cur: n, goal: max };
 }
 
 function chestReady() {
