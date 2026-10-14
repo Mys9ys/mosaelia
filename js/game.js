@@ -1,11 +1,11 @@
 import { APP_VERSION_SHORT } from "./version.js";
-import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=57";
-import { FRAMES } from "./frames.js?v=57";
-import { OCT_LEVELS } from "./october.js?v=57";
-import { HW_LEVELS } from "./halloween.js?v=57";
-import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=57";
+import { COLORS, LEVELS as CAMPAIGN, tilesFor } from "./levels.js?v=59";
+import { FRAMES } from "./frames.js?v=59";
+import { OCT_LEVELS } from "./october.js?v=59";
+import { HW_LEVELS } from "./halloween.js?v=59";
+import { daysInMonth, isoDay, mondayIndex, MONTHS_RU, moscowParts, octIndexForIso, octMonthParts, todayIso } from "./calendar.js?v=59";
 import { createPlatform } from "./platform/index.js";
-import { fetchLeaders, fetchRanks, guestId, track } from "./stats.js";
+import { fetchLeaders, fetchRanks, fetchShopStats, guestId, track } from "./stats.js";
 
 const LEVELS = CAMPAIGN.concat(HW_LEVELS);
 
@@ -26,13 +26,39 @@ const AD_HELP_MAX = 3;
 const CHEST_INTERVAL_MS = 4 * 3600 * 1000;
 const CHEST_COINS = 30;
 const BOOSTER_STOCK_MAX = 9;
+const SHOP_BUY_DAILY_MAX = 2;
 const SHOP_BOOSTER = {
     shuffles: { label: "Перемешать", price: 35, max: SHUFFLE_MAX },
     undos: { label: "Отмена", price: 28, max: UNDO_MAX },
     wands: { label: "Палочка", price: 48, max: WAND_MAX },
     extraTokens: { label: "Слот", price: 55, max: 3 }
 };
-const NEWS_ID = "2026-10-01";
+const SHOP_CHEST_ART = [
+    "shop-chest.svg",
+    "shop-chest-gold.svg",
+    "shop-chest-crystal.svg",
+    "shop-chest-ruby.svg",
+    "shop-chest-emerald.svg",
+    "shop-chest-silver.svg"
+];
+const SHOP_BOOSTER_CLASS = {
+    shuffles: "booster-shuffle",
+    undos: "booster-undo",
+    wands: "booster-wand",
+    extraTokens: "booster-extra"
+};
+
+const SHOP_CHEST_ART_V = 68;
+
+function shopChestArtSrc() {
+    const iso = todayIso();
+    let h = 0;
+    for (let i = 0; i < iso.length; i++) h = (h * 31 + iso.charCodeAt(i)) | 0;
+    const file = SHOP_CHEST_ART[Math.abs(h) % SHOP_CHEST_ART.length];
+    return `img/${file}?v=${SHOP_CHEST_ART_V}`;
+}
+const NEWS_ID = "2026-10-15-v4";
+const NEWS_PAGE_COUNT = 2;
 const HINT = "Выложи плитки в канавки. Три одинаковых сверху — в рамку";
 
 const platform = await createPlatform();
@@ -82,6 +108,12 @@ const ui = {
     leadersMe: $("leaders-me"),
     leadersFoot: $("leaders-foot"),
     leadersSub: $("leaders-sub"),
+    leadersPager: $("leaders-pager"),
+    leadersPageLabel: $("leaders-page-label"),
+    leadersPrev: $("leaders-prev"),
+    leadersNext: $("leaders-next"),
+    leadersShopBlock: $("leaders-shop-block"),
+    leadersUseBlock: $("leaders-use-block"),
     shuffle: $("shuffle"),
     undo: $("undo"),
     extra: $("extra"),
@@ -172,6 +204,8 @@ function defaultSave() {
         adHelps: 0,
         chestAt: 0,
         extraTokens: 0,
+        shopBuyDate: "",
+        shopBuys: {},
         seenNews: ""
     };
 }
@@ -199,7 +233,11 @@ const state = {
     calIso: "",
     payout: REWARD,
     leaderBoard: "clears",
-    leaderPeriod: "week"
+    leaderShopItem: "shuffles",
+    leaderUseItem: "shuffles",
+    leaderPeriod: "week",
+    leaderPage: 1,
+    shopStats: null
 };
 
 function persist() {
@@ -456,6 +494,89 @@ function adHelpBlocked() {
     return adHelpsLeft() <= 0;
 }
 
+function syncShopBuys() {
+    const today = todayIso();
+    if (save.shopBuyDate !== today) {
+        save.shopBuyDate = today;
+        save.shopBuys = {};
+        persist();
+    }
+    if (!save.shopBuys || typeof save.shopBuys !== "object") save.shopBuys = {};
+}
+
+function shopBuysToday(key) {
+    syncShopBuys();
+    return readCount(save.shopBuys[key], 0);
+}
+
+function shopBuyLeft(key) {
+    return Math.max(0, SHOP_BUY_DAILY_MAX - shopBuysToday(key));
+}
+
+function shopBuyBlocked(key) {
+    return shopBuyLeft(key) <= 0;
+}
+
+function trackBoosterUse(item) {
+    track("booster_use", {
+        platform: platform.id,
+        item,
+        name: platform.playerName?.() || ""
+    });
+}
+
+function recordShopBuy(key, spent = 0) {
+    syncShopBuys();
+    save.shopBuys[key] = shopBuysToday(key) + 1;
+    persist();
+    track("shop_buy", {
+        platform: platform.id,
+        item: key,
+        spent: Math.max(0, Number(spent) || 0),
+        name: platform.playerName?.() || ""
+    });
+}
+
+function syncChestArtImages() {
+    const src = shopChestArtSrc();
+    const fallback = `img/shop-chest.svg?v=${SHOP_CHEST_ART_V}`;
+    document.querySelectorAll(".shop-chest-img, .leaders-chest-ico").forEach((img) => {
+        img.src = src;
+        img.onerror = () => {
+            img.onerror = null;
+            img.src = fallback;
+        };
+    });
+}
+
+function shopBuysLabel(n) {
+    const x = Math.max(0, Number(n) || 0);
+    return `${x} ${purchasesWord(x)}`;
+}
+
+function shopOpensLabel(n) {
+    const x = Math.max(0, Number(n) || 0);
+    return `${x} ${opensWord(x)}`;
+}
+
+function purchasesWord(n) {
+    const x = Math.abs(Number(n) || 0) % 100;
+    const d = x % 10;
+    if (x > 10 && x < 20) return "покупок";
+    if (d === 1) return "покупка";
+    if (d >= 2 && d <= 4) return "покупки";
+    return "покупок";
+}
+
+function opensWord(n) {
+    const x = Math.abs(Number(n) || 0) % 100;
+    const d = x % 10;
+    if (x > 10 && x < 20) return "открытий";
+    if (d === 1) return "открытие";
+    if (d >= 2 && d <= 4) return "открытия";
+    return "открытий";
+}
+
 function paintUses(el, count, { hidden = false, wantAd = false } = {}) {
     if (!el) return;
     if (hidden) {
@@ -511,14 +632,30 @@ function isReturner() {
         || Number(save.coins) > 0;
 }
 
+function showNewsPage(index) {
+    const page = Math.max(0, Math.min(NEWS_PAGE_COUNT - 1, index));
+    document.querySelectorAll(".news-page").forEach((el) => {
+        el.hidden = Number(el.dataset.newsPage) !== page;
+    });
+    document.querySelectorAll(".news-dot").forEach((dot, i) => {
+        const on = i === page;
+        dot.classList.toggle("active", on);
+        dot.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    return page;
+}
+
 function maybeShowNews() {
     const news = $("news");
     if (!news) return;
-    if (new URLSearchParams(location.search).has("shot")) return;
-    if (save.seenNews === NEWS_ID || !isReturner()) {
+    const qs = new URLSearchParams(location.search);
+    if (qs.has("shot")) return;
+    const forceNews = qs.has("news");
+    if (!forceNews && (save.seenNews === NEWS_ID || !isReturner())) {
         news.classList.remove("show");
         return;
     }
+    showNewsPage(0);
     news.classList.add("show");
 }
 
@@ -526,6 +663,7 @@ function closeNews() {
     save.seenNews = NEWS_ID;
     persist();
     $("news")?.classList.remove("show");
+    showNewsPage(0);
 }
 
 function nextPlayIndex() {
@@ -553,7 +691,10 @@ function showScreen(name) {
     }
     if (name === "gallery") renderGallery();
     if (name === "bonus") renderCalendar();
-    if (name === "shop") renderShop();
+    if (name === "shop") {
+        state.shopStats = null;
+        void renderShop();
+    }
     if (name === "leaders") renderLeaders();
     if (name === "play" && !state.won) platform.gameplayStart();
     else platform.gameplayStop();
@@ -710,47 +851,70 @@ function renderGallery() {
     });
 }
 
-function renderShop() {
+async function renderShop() {
     const grid = $("shop-grid");
     const boosters = $("shop-boosters");
     const chestBtn = $("shop-chest");
     const coinsEl = $("shop-coins");
     if (coinsEl) coinsEl.textContent = `${save.coins} монет`;
+    if (state.shopStats === null) {
+        state.shopStats = await fetchShopStats();
+    }
+    const pop = state.shopStats || {};
+    const chestPop = pop.chest?.buys || 0;
+    const chestSocial = $("shop-chest-social");
+    if (chestSocial) {
+        chestSocial.textContent = shopOpensLabel(chestPop);
+        chestSocial.hidden = false;
+    }
+    syncChestArtImages();
     if (chestBtn) {
         chestBtn.disabled = !chestReady();
         chestBtn.classList.toggle("ready", chestReady());
         const label = chestBtn.querySelector(".shop-chest-action");
-        if (label) label.textContent = chestWaitText();
+        if (label) label.textContent = chestReady() ? "Открыть за ролик" : chestWaitText();
     }
     if (boosters) {
         boosters.replaceChildren();
         const icons = { shuffles: "#i-shuffle", undos: "#i-undo", wands: "#i-wand", extraTokens: "#i-plus" };
         Object.entries(SHOP_BOOSTER).forEach(([key, spec]) => {
             const stock = key === "extraTokens"
-                ? Number(save.extraTokens) || 0
+                ? readCount(save.extraTokens, 0)
                 : readCount(save[key], spec.max);
+            const cap = key === "extraTokens" ? spec.max : BOOSTER_STOCK_MAX;
+            const left = shopBuyLeft(key);
+            const buyCount = pop[key]?.buys || 0;
             const btn = document.createElement("button");
             btn.type = "button";
-            btn.className = "shop-card shop-booster-card";
-            btn.innerHTML = `<span class="shop-booster-ico"><svg class="ico"><use href="${icons[key]}"/></svg></span>
-                <span class="shop-name">${spec.label}</span>
-                <span class="shop-price">${spec.price} монет</span>
-                <span class="shop-stock">запас ${stock}</span>`;
+            btn.className = `booster ${SHOP_BOOSTER_CLASS[key]} shop-booster-buy`;
+            const buyerLine = shopBuysLabel(buyCount);
+            const boughtToday = SHOP_BUY_DAILY_MAX - left;
+            btn.innerHTML = `<span class="booster-face"><svg class="ico"><use href="${icons[key]}"/></svg><span class="shop-price-tag"><span class="coin-dot"></span>${spec.price}</span></span>
+                ${spec.label}
+                <span class="shop-booster-note">запас ${stock} · ${boughtToday}/${SHOP_BUY_DAILY_MAX} сегодня</span>
+                <span class="shop-booster-note shop-booster-social">${buyerLine}</span>`;
             btn.addEventListener("click", () => {
+                if (shopBuyBlocked(key)) {
+                    toast("Лимит на сегодня — завтра снова");
+                    return;
+                }
                 if (save.coins < spec.price) {
                     toast("Нужно больше монет");
                     return;
                 }
-                const cap = key === "extraTokens" ? spec.max : BOOSTER_STOCK_MAX;
                 if (stock >= cap) {
                     toast("Запас полный");
                     return;
                 }
                 save.coins -= spec.price;
                 addBoosterStock(key, 1);
+                recordShopBuy(key, spec.price);
+                if (state.shopStats?.[key]) {
+                    state.shopStats[key].buys = (state.shopStats[key].buys || 0) + 1;
+                }
                 persist();
                 renderMenu();
-                renderShop();
+                void renderShop();
                 if (screen === "play") applyBoostersFromSave();
                 toast(`+1 ${spec.label.toLowerCase()}`);
             });
@@ -790,6 +954,12 @@ function renderShop() {
             save.coins -= item.price;
             save.framesOwned = [...owned, item.id];
             save.frame = item.id;
+            track("shop_buy", {
+                platform: platform.id,
+                item: `frame-${item.id}`,
+                spent: item.price,
+                name: platform.playerName?.() || ""
+            });
             persist();
             renderMenu();
             renderShop();
@@ -1238,23 +1408,62 @@ function setRankFoot(text) {
 }
 
 const LEADER_BOARD_COPY = {
-    clears: { title: "Новые картины", unit: "картин", hint: "Первое прохождение уровня за период." },
-    activity: { title: "Сборы", unit: "сборов", hint: "Любое завершение мозаики, включая повторы." },
-    coins: { title: "Монеты с картин", unit: "монет", hint: "Награды за победы. Сундук и магазин не считаются." }
+    clears: { title: "Новые картины", unit: "картин", hint: "Первое прохождение уровня кампании. Повторы и «картина дня» не считаются." },
+    activity: { title: "Сборы", unit: "сборов", hint: "Завершённые мозаики кампании без повторов. Картина дня — отдельно." },
+    coins: { title: "Монеты с картин", unit: "монет", hint: "Монеты за первые прохождения. Повторы, сундук и магазин не считаются." }
 };
+
+const LEADER_SHOP_META = {
+    shuffles: { title: "Перемешать", unit: "покупок", hint: "Покупки «Перемешать» в магазине." },
+    undos: { title: "Отмена", unit: "покупок", hint: "Покупки «Отмена» в магазине." },
+    wands: { title: "Палочка", unit: "покупок", hint: "Покупки «Палочка» в магазине." },
+    extraTokens: { title: "Слот", unit: "покупок", hint: "Покупки дополнительного слота." },
+    chest: { title: "Сундук", unit: "открытий", hint: "Открытия сундука за ролик в магазине." },
+    spent: { title: "Траты", unit: "монет", hint: "Монеты, потраченные в магазине на бусты и рамки." },
+    frames: { title: "Рамки", unit: "покупок", hint: "Сколько декоративных рамок купили за монеты." }
+};
+
+const LEADER_USE_META = {
+    shuffles: { title: "Перемешать", unit: "использований", hint: "Сколько раз игроки нажали «Перемешать» на поле." },
+    undos: { title: "Отмена", unit: "использований", hint: "Использования «Отмена» в партии." },
+    wands: { title: "Палочка", unit: "использований", hint: "Использования «Палочка»." },
+    extraTokens: { title: "Слот", unit: "использований", hint: "Дополнительные канавки — бесплатная, за ролик или из запаса." }
+};
+
+function leaderBoardMeta(board, shopItem, useItem) {
+    if (board === "shop") return LEADER_SHOP_META[shopItem] || LEADER_SHOP_META.shuffles;
+    if (board === "use") return LEADER_USE_META[useItem] || LEADER_USE_META.shuffles;
+    return LEADER_BOARD_COPY[board] || LEADER_BOARD_COPY.clears;
+}
 
 const LEADER_PERIOD_COPY = { day: "за день", week: "за неделю", month: "за месяц", all: "за всё время" };
 
 async function renderLeaders() {
     const board = state.leaderBoard;
     const period = state.leaderPeriod;
+    const shopMode = board === "shop";
+    const useMode = board === "use";
+    const apiBoard = shopMode
+        ? `buy-${state.leaderShopItem}`
+        : useMode
+            ? `use-${state.leaderUseItem}`
+            : board;
     document.querySelectorAll(".leaders-tab[data-period]").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.period === period);
     });
     document.querySelectorAll(".leaders-tab[data-board]").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.board === board);
     });
-    const meta = LEADER_BOARD_COPY[board] || LEADER_BOARD_COPY.clears;
+    document.querySelectorAll("[data-shop]").forEach((btn) => {
+        btn.classList.toggle("active", shopMode && btn.dataset.shop === state.leaderShopItem);
+    });
+    document.querySelectorAll("[data-use]").forEach((btn) => {
+        btn.classList.toggle("active", useMode && btn.dataset.use === state.leaderUseItem);
+    });
+    if (ui.leadersShopBlock) ui.leadersShopBlock.hidden = !shopMode;
+    if (ui.leadersUseBlock) ui.leadersUseBlock.hidden = !useMode;
+    if (shopMode || useMode) syncChestArtImages();
+    const meta = leaderBoardMeta(board, state.leaderShopItem, state.leaderUseItem);
     const when = LEADER_PERIOD_COPY[period] || "";
     if (ui.leadersSub) ui.leadersSub.textContent = `${meta.title} ${when}`.trim();
     if (ui.leadersList) {
@@ -1264,14 +1473,20 @@ async function renderLeaders() {
         loading.textContent = "Загружаем…";
         ui.leadersList.appendChild(loading);
     }
-    const pack = await fetchLeaders(board, period);
+    const page = state.leaderPage;
+    const pack = await fetchLeaders(apiBoard, period, page);
     const meId = guestId();
+    if (pack.page && pack.page !== page) state.leaderPage = pack.page;
     if (ui.leadersList) {
         ui.leadersList.replaceChildren();
         if (!pack.rows.length) {
             const empty = document.createElement("li");
             empty.className = "rank-empty";
-            empty.textContent = "Пока пусто — сыграй картину и обнови таблицу.";
+            empty.textContent = shopMode
+                ? "Пока пусто — купи в магазине или открой сундук."
+                : useMode
+                    ? "Пока пусто — используй буст на поле."
+                    : "Пока пусто — сыграй картину и обнови таблицу.";
             ui.leadersList.appendChild(empty);
         } else {
             pack.rows.forEach((row) => {
@@ -1292,10 +1507,21 @@ async function renderLeaders() {
             ui.leadersMe.textContent = "";
         }
     }
+    const pages = pack.pages || 1;
+    const curPage = pack.page || state.leaderPage || 1;
+    if (ui.leadersPager) {
+        ui.leadersPager.hidden = pages <= 1;
+    }
+    if (ui.leadersPageLabel) {
+        ui.leadersPageLabel.textContent = `${curPage} / ${pages}`;
+    }
+    if (ui.leadersPrev) ui.leadersPrev.disabled = curPage <= 1;
+    if (ui.leadersNext) ui.leadersNext.disabled = curPage >= pages;
     if (ui.leadersFoot) {
-        const n = pack.players || pack.rows.length;
+        const n = pack.players || 0;
+        const pageHint = pages > 1 ? ` Страница ${curPage} из ${pages}, по 20 игроков.` : "";
         ui.leadersFoot.textContent = n
-            ? `${meta.hint} В таблице ${n} ${playersWord(n)}.`
+            ? `${meta.hint} В таблице ${n} ${playersWord(n)}.${pageHint}`
             : meta.hint;
     }
 }
@@ -1381,7 +1607,9 @@ async function finishLevel() {
     track("complete", {
         platform: platform.id,
         level: id,
-        first,
+        first: state.dailyMode ? (firstDay ? 1 : 0) : (first ? 1 : 0),
+        replay: replay ? 1 : 0,
+        daily: state.dailyMode ? 1 : 0,
         total: save.completed.length,
         moves,
         record: record ? 1 : 0,
@@ -1794,6 +2022,7 @@ function doUndo() {
     restoreRun(state.history.pop());
     state.undos -= 1;
     syncBoosters();
+    trackBoosterUse("undos");
     beep(240, 0.08);
     render();
 }
@@ -1814,6 +2043,7 @@ function doShuffle() {
     state.shuffles -= 1;
     state.usedShuffle = true;
     syncBoosters();
+    trackBoosterUse("shuffles");
     beep(280, 0.06);
     beep(340, 0.08);
     render();
@@ -1896,6 +2126,7 @@ async function doWand() {
     state.wands -= 1;
     state.usedWand = true;
     syncBoosters();
+    trackBoosterUse("wands");
     const dest = cellEl.getBoundingClientRect();
     tileEls.forEach((el) => {
         el.style.visibility = "hidden";
@@ -1924,6 +2155,7 @@ function doExtra() {
             state.stacks.push([]);
             persist();
             syncBoosters();
+            trackBoosterUse("extraTokens");
             beep(500, 0.08);
             render();
             toast("Ещё одна канавка");
@@ -1936,6 +2168,7 @@ function doExtra() {
     state.extraUsed = true;
     state.stacks.push([]);
     syncBoosters();
+    trackBoosterUse("extraTokens");
     beep(500, 0.08);
     render();
     toast("Ещё одна канавка");
@@ -1957,6 +2190,14 @@ async function openShopChest() {
         return;
     }
     save.chestAt = Date.now();
+    track("shop_buy", {
+        platform: platform.id,
+        item: "chest",
+        name: platform.playerName?.() || ""
+    });
+    if (state.shopStats?.chest) {
+        state.shopStats.chest.buys = (state.shopStats.chest.buys || 0) + 1;
+    }
     save.coins += CHEST_COINS;
     const roll = Math.random();
     let extra = "";
@@ -2001,6 +2242,7 @@ async function refillWithAd(kind, okText) {
         pushHistory();
         state.extraAdUsed = true;
         state.stacks.push([]);
+        trackBoosterUse("extraTokens");
     }
     syncBoosters();
     beep(500, 0.08);
@@ -2097,14 +2339,42 @@ $("leaders-back").addEventListener("click", () => showScreen("menu"));
 document.querySelectorAll(".leaders-tab[data-period]").forEach((btn) => {
     btn.addEventListener("click", () => {
         state.leaderPeriod = btn.dataset.period || "week";
+        state.leaderPage = 1;
         renderLeaders();
     });
 });
 document.querySelectorAll(".leaders-tab[data-board]").forEach((btn) => {
     btn.addEventListener("click", () => {
         state.leaderBoard = btn.dataset.board || "clears";
+        state.leaderPage = 1;
         renderLeaders();
     });
+});
+document.querySelectorAll("[data-shop]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        state.leaderBoard = "shop";
+        state.leaderShopItem = btn.dataset.shop || "shuffles";
+        state.leaderPage = 1;
+        renderLeaders();
+    });
+});
+document.querySelectorAll("[data-use]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        state.leaderBoard = "use";
+        state.leaderUseItem = btn.dataset.use || "shuffles";
+        state.leaderPage = 1;
+        renderLeaders();
+    });
+});
+ui.leadersPrev?.addEventListener("click", () => {
+    if (state.leaderPage > 1) {
+        state.leaderPage -= 1;
+        renderLeaders();
+    }
+});
+ui.leadersNext?.addEventListener("click", () => {
+    state.leaderPage += 1;
+    renderLeaders();
 });
 $("shop-chest")?.addEventListener("click", () => openShopChest());
 $("howto-btn").addEventListener("click", () => showScreen("howto"));
@@ -2142,6 +2412,11 @@ $("hw-banner")?.addEventListener("click", () => {
 });
 $("howto-play").addEventListener("click", () => enterPlay(nextPlayIndex(), { fromHowto: true }));
 $("news-close").addEventListener("click", closeNews);
+document.querySelectorAll("[data-news-dot]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        showNewsPage(Number(btn.dataset.newsDot) || 0);
+    });
+});
 $("news-ok").addEventListener("click", closeNews);
 
 let markTaps = 0;

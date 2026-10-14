@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <ellipse cx="48" cy="86" rx="36" ry="7" fill="#1a1008" opacity="0.2"/>
+  <path d="M14 54c0-3 30-6 34-6s34 3 34 6v20c0 3-30 6-34 6s-34-3-34-6V54z" fill="url(#gBody)"/>
+  <path d="M18 54c0-16 14-26 30-26s30 10 30 26" fill="url(#gLid)"/>
+  <path d="M18 54c0-16 14-26 30-26s30 10 30 26" stroke="#ffe8a0" stroke-width="1.5" stroke-opacity="0.45" fill="none"/>
+  <path d="M16 56h64" stroke="url(#gStripe)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M20 68h56" stroke="url(#gStripe)" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="22" cy="62" r="5" fill="url(#gRivet)"/>
+  <circle cx="74" cy="62" r="5" fill="url(#gRivet)"/>
+  <rect x="34" y="56" width="28" height="22" rx="8" fill="url(#gPlate)"/>
+  <path d="M48 52v6" stroke="#8d7030" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="48" cy="67" r="4" fill="#3a2818"/>
+  <circle cx="48" cy="67" r="2" fill="#ffe8a8"/>
+  <!-- crown on lid -->
+  <path d="M38 36h20l-3 8h-14l-3-8zm2 0 4 5 4-5 4 5 4-5" stroke="#ffd878" stroke-width="2" stroke-linejoin="round" fill="#ffe8a0"/>
+  <circle cx="26" cy="74" r="5" fill="url(#gCoin)"/>
+  <circle cx="32" cy="76" r="4" fill="url(#gCoin)" opacity="0.9"/>
+  <circle cx="68" cy="76" r="4.5" fill="url(#gCoin)"/>
+  <defs>
+    <linearGradient id="gBody" x1="14" y1="50" x2="82" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5a3820"/>
+      <stop offset="0.5" stop-color="#3a2414"/>
+      <stop offset="1" stop-color="#2a180c"/>
+    </linearGradient>
+    <linearGradient id="gLid" x1="48" y1="26" x2="48" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8a5830"/>
+      <stop offset="0.45" stop-color="#5a3820"/>
+      <stop offset="1" stop-color="#3a2414"/>
+    </linearGradient>
+    <linearGradient id="gStripe" x1="16" y1="0" x2="80" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff8d0"/>
+      <stop offset="0.35" stop-color="#ffd850"/>
+      <stop offset="1" stop-color="#e8a020"/>
+    </linearGradient>
+    <linearGradient id="gPlate" x1="34" y1="56" x2="62" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffce8"/>
+      <stop offset="1" stop-color="#f0c040"/>
+    </linearGradient>
+    <radialGradient id="gRivet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(22 62) scale(5)">
+      <stop stop-color="#fff8e0"/>
+      <stop offset="1" stop-color="#c89830"/>
+    </radialGradient>
+    <radialGradient id="gCoin" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(26 74) scale(5)">
+      <stop stop-color="#fff4c8"/>
+      <stop offset="1" stop-color="#e8b030"/>
+    </radialGradient>
+  </defs>
+</svg>

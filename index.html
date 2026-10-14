@@ -8,7 +8,7 @@
     <title>Мозаэлия</title>
     <!-- Yandex Games SDK -->
     <script src="/sdk.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=57">
+    <link rel="stylesheet" href="css/game.css?v=72">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 </head>
@@ -158,15 +158,18 @@
             <div class="shop-scroll">
                 <p class="shop-lead">Монеты за картины. Сундук — раз в 4 часа за ролик.</p>
                 <button type="button" class="shop-chest" id="shop-chest">
-                    <span class="shop-chest-ico" aria-hidden="true"></span>
+                    <img class="shop-chest-img" src="img/shop-chest.svg?v=68" width="72" height="72" alt="" decoding="async">
                     <span class="shop-chest-copy">
-                        <strong>Сундук</strong>
+                        <strong>Сундук с монетами</strong>
                         <span class="shop-chest-action">Открыть за ролик</span>
+                        <span class="shop-chest-loot">+30 монет · иногда усиление</span>
                     </span>
-                    <span class="shop-chest-loot">+30 монет · иногда усиление</span>
+                    <span class="shop-chest-ad" aria-hidden="true"><svg class="ico"><use href="#i-ad"/></svg></span>
                 </button>
+                <p class="shop-chest-social" id="shop-chest-social" hidden></p>
                 <h3 class="shop-section">Усиления</h3>
-                <div class="shop-grid shop-boosters" id="shop-boosters"></div>
+                <p class="shop-hint">До 2 покупок в день на каждый буст. Ещё можно получить за ролик на поле.</p>
+                <div class="shop-boosters-bar" id="shop-boosters"></div>
                 <h3 class="shop-section">Рамки</h3>
                 <div class="shop-grid" id="shop-grid"></div>
             </div>
@@ -182,8 +185,8 @@
                 <span class="hud-spacer"></span>
             </header>
             <div class="leaders-scroll">
-                <p class="leaders-lead">Звание в меню — твой путь по кампании. Здесь — таблицы всех игроков.</p>
-                <div class="leaders-tabs" role="tablist" aria-label="Период">
+                <p class="leaders-lead">Таблицы игроков. Звание — в меню, над кнопками.</p>
+                <div class="leaders-tabs leaders-tabs-period" role="tablist" aria-label="Период">
                     <button type="button" class="leaders-tab" data-period="day">День</button>
                     <button type="button" class="leaders-tab active" data-period="week">Неделя</button>
                     <button type="button" class="leaders-tab" data-period="month">Месяц</button>
@@ -193,9 +196,57 @@
                     <button type="button" class="leaders-tab active" data-board="clears">Новые картины</button>
                     <button type="button" class="leaders-tab" data-board="activity">Сборы</button>
                     <button type="button" class="leaders-tab" data-board="coins">Монеты</button>
+                    <button type="button" class="leaders-tab" data-board="shop">Покупки</button>
+                    <button type="button" class="leaders-tab" data-board="use">Использование</button>
+                </div>
+                <div class="leaders-shop-block" id="leaders-shop-block" hidden>
+                    <div class="leaders-tabs leaders-tabs-shop" role="tablist" aria-label="Товар в магазине">
+                        <button type="button" class="leaders-tab-booster booster-shuffle active" data-shop="shuffles" aria-label="Перемешать">
+                            <span class="booster-face"><svg class="ico"><use href="#i-shuffle"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-undo" data-shop="undos" aria-label="Отмена">
+                            <span class="booster-face"><svg class="ico"><use href="#i-undo"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-wand" data-shop="wands" aria-label="Палочка">
+                            <span class="booster-face"><svg class="ico"><use href="#i-wand"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-extra" data-shop="extraTokens" aria-label="Слот">
+                            <span class="booster-face"><svg class="ico"><use href="#i-plus"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-chest" data-shop="chest" aria-label="Сундук">
+                            <span class="booster-face booster-face-img"><img class="leaders-chest-ico" src="img/shop-chest.svg?v=68" width="32" height="32" alt=""></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-coins" data-shop="spent" aria-label="Траты монет">
+                            <span class="booster-face"><span class="coin-dot leaders-coin-ico"></span></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-frame" data-shop="frames" aria-label="Рамки">
+                            <span class="booster-face"><svg class="ico"><use href="#i-frame"/></svg></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="leaders-shop-block leaders-use-block" id="leaders-use-block" hidden>
+                    <div class="leaders-tabs leaders-tabs-shop" role="tablist" aria-label="Буст на поле">
+                        <button type="button" class="leaders-tab-booster booster-shuffle active" data-use="shuffles" aria-label="Перемешать">
+                            <span class="booster-face"><svg class="ico"><use href="#i-shuffle"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-undo" data-use="undos" aria-label="Отмена">
+                            <span class="booster-face"><svg class="ico"><use href="#i-undo"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-wand" data-use="wands" aria-label="Палочка">
+                            <span class="booster-face"><svg class="ico"><use href="#i-wand"/></svg></span>
+                        </button>
+                        <button type="button" class="leaders-tab-booster booster-extra" data-use="extraTokens" aria-label="Слот">
+                            <span class="booster-face"><svg class="ico"><use href="#i-plus"/></svg></span>
+                        </button>
+                    </div>
                 </div>
                 <p class="leaders-me" id="leaders-me" hidden></p>
                 <ol class="leaders-list" id="leaders-list"></ol>
+                <nav class="leaders-pager" id="leaders-pager" aria-label="Страницы рейтинга" hidden>
+                    <button type="button" class="secondary leaders-page-btn" id="leaders-prev">Назад</button>
+                    <span class="leaders-page-label" id="leaders-page-label">1 / 1</span>
+                    <button type="button" class="secondary leaders-page-btn" id="leaders-next">Дальше</button>
+                </nav>
                 <p class="leaders-foot" id="leaders-foot"></p>
             </div>
         </section>
@@ -306,15 +357,31 @@
                 <button class="news-close" id="news-close" type="button" aria-label="Закрыть">
                     <svg class="ico"><use href="#i-close"/></svg>
                 </button>
-                <p class="news-kicker">Обновление</p>
-                <h2>Что нового</h2>
-                <p>Для тех, кто уже заходил — коротко, что добавили.</p>
-                <ul class="news-list">
-                    <li><strong>Картина дня.</strong> Каждый день своя мозаика и рейтинг по ходам.</li>
-                    <li><strong>Бонусные.</strong> Октябрьский календарь: сегодня открыто, пропуск — за ролик.</li>
-                    <li><strong>Рамки.</strong> Косметика за монеты, на игру не влияет.</li>
-                    <li><strong>Вторая мастерская.</strong> Ещё 18 картин после первой.</li>
-                </ul>
+                <div class="news-page" data-news-page="0">
+                    <p class="news-kicker">v4.0</p>
+                    <h2>Рейтинги магазина</h2>
+                    <p class="news-lead">Свежие таблицы — можно закрыть сразу или переключить точками внизу.</p>
+                    <ul class="news-list">
+                        <li><strong>Траты монет.</strong> Кто больше всех тратит в магазине на бусты и рамки.</li>
+                        <li><strong>Рамки и бусты.</strong> Отдельные рейтинги покупок — по иконкам, как на поле.</li>
+                        <li><strong>Использование.</strong> Сколько раз жмут бусты в партии — тоже в «Рейтинг».</li>
+                    </ul>
+                </div>
+                <div class="news-page" data-news-page="1" hidden>
+                    <p class="news-kicker">v3.0</p>
+                    <h2>Магазин и рейтинги</h2>
+                    <p class="news-lead">Если пропустили прошлое обновление — напомним.</p>
+                    <ul class="news-list">
+                        <li><strong>Без навязчивой рекламы.</strong> Убрали ролик на «Следующая картина». Ролик — только по желанию.</li>
+                        <li><strong>Магазин.</strong> Монеты с картин — на бусты и рамки. Сундук раз в 4 часа.</li>
+                        <li><strong>Рейтинги.</strong> Новые картины, монеты, покупки — в меню «Рейтинг».</li>
+                        <li><strong>Картина дня и календарь.</strong> Ежедневная мозаика и бонусные уровни.</li>
+                    </ul>
+                </div>
+                <div class="news-pager" role="tablist" aria-label="Страницы новостей">
+                    <button type="button" class="news-dot active" data-news-dot="0" aria-label="v4.0" aria-selected="true"></button>
+                    <button type="button" class="news-dot" data-news-dot="1" aria-label="v3.0" aria-selected="false"></button>
+                </div>
                 <button class="primary" id="news-ok" type="button">Понятно</button>
             </div>
         </div>
@@ -328,6 +395,6 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=57"></script>
+    <script type="module" src="js/game.js?v=73"></script>
 </body>
 </html>

@@ -54,10 +54,14 @@ export function track(ev, extra = {}) {
         p: extra.platform || "",
         level: extra.level || "",
         first: extra.first ? 1 : 0,
+        replay: extra.replay ? 1 : 0,
+        daily: extra.daily ? 1 : 0,
         total: extra.total ?? null,
         moves: extra.moves ?? null,
         clean: extra.clean ? 1 : 0,
         payout: extra.payout ?? null,
+        spent: extra.spent ?? null,
+        item: extra.item || "",
         name: extra.name || "",
         token: STATS_TOKEN
     });
@@ -90,21 +94,41 @@ export async function fetchRanks(level) {
     }
 }
 
-export async function fetchLeaders(board, period) {
+function shopStatsEndpoint() {
+    const base = statsBase();
+    return base ? `${base}shop-stats.php` : "";
+}
+
+export async function fetchShopStats() {
+    const url = shopStatsEndpoint();
+    if (!url) return {};
+    try {
+        const res = await fetch(url, { mode: "cors" });
+        if (!res.ok) return {};
+        const data = await res.json();
+        return data?.items && typeof data.items === "object" ? data.items : {};
+    } catch {
+        return {};
+    }
+}
+
+export async function fetchLeaders(board, period, page = 1) {
     const url = leadersEndpoint();
-    if (!url) return { rows: [], players: 0, me: null };
+    if (!url) return { rows: [], players: 0, page: 1, pages: 1, me: null };
     try {
         const me = guestId();
-        const q = new URLSearchParams({ board, period, id: me });
+        const q = new URLSearchParams({ board, period, id: me, page: String(page) });
         const res = await fetch(`${url}?${q}`, { mode: "cors" });
-        if (!res.ok) return { rows: [], players: 0, me: null };
+        if (!res.ok) return { rows: [], players: 0, page: 1, pages: 1, me: null };
         const data = await res.json();
         return {
             rows: Array.isArray(data?.rows) ? data.rows : [],
             players: Number(data?.players) || 0,
+            page: Math.max(1, Number(data?.page) || 1),
+            pages: Math.max(1, Number(data?.pages) || 1),
             me: data?.me || null
         };
     } catch {
-        return { rows: [], players: 0, me: null };
+        return { rows: [], players: 0, page: 1, pages: 1, me: null };
     }
 }

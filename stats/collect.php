@@ -27,7 +27,7 @@ if (!is_array($data)) {
 }
 
 $ev = $data["ev"] ?? "";
-if (!in_array($ev, ["launch", "complete"], true)) {
+if (!in_array($ev, ["launch", "complete", "shop_buy", "booster_use"], true)) {
     http_response_code(400);
     exit;
 }
@@ -58,17 +58,28 @@ if ($payout !== null) {
     $payout = max(0, min(500, $payout));
 }
 
+$spent = isset($data["spent"]) ? (int) $data["spent"] : null;
+if ($spent !== null) {
+    $spent = max(0, min(500, $spent));
+}
+
+$item = substr(preg_replace("/[^a-zA-Z0-9_-]/", "", (string) ($data["item"] ?? "")), 0, 24);
+
 $row = [
     "t" => (int) ($data["t"] ?? (int) round(microtime(true) * 1000)),
     "id" => $id,
     "ev" => $ev,
     "p" => substr(preg_replace("/[^a-z0-9_-]/", "", (string) ($data["p"] ?? "")), 0, 16),
+    "item" => $item,
     "level" => $level,
     "first" => !empty($data["first"]) ? 1 : 0,
+    "replay" => !empty($data["replay"]) ? 1 : 0,
+    "daily" => !empty($data["daily"]) ? 1 : 0,
     "total" => isset($data["total"]) ? (int) $data["total"] : null,
     "moves" => $moves,
     "clean" => $clean,
     "payout" => $payout,
+    "spent" => $spent,
     "name" => $name,
 ];
 

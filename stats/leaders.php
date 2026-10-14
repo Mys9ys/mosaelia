@@ -21,13 +21,16 @@ $board = (string) ($_GET["board"] ?? "clears");
 $period = (string) ($_GET["period"] ?? "week");
 $meId = preg_replace("/[^a-zA-Z0-9_-]/", "", (string) ($_GET["id"] ?? ""));
 
-$data = mosaelia_leaderboard($board, $period, 30);
+$page = max(1, (int) ($_GET["page"] ?? 1));
+$data = mosaelia_leaderboard($board, $period, $page, 20);
 $me = $meId !== "" ? mosaelia_leader_me($board, $period, $meId) : null;
 
 echo json_encode([
     "ok" => 1,
     "board" => $board,
     "period" => $period,
+    "page" => $data["page"],
+    "pages" => $data["pages"],
     "rows" => $data["rows"],
     "players" => $data["total"],
     "me" => $me

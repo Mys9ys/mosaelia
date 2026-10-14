@@ -21,7 +21,13 @@ $yandexFiles = @(
     "js\stats.js",
     "img\favicon.png",
     "img\apple-touch-icon.png",
-    "img\halloween-banner.jpg"
+    "img\halloween-banner.jpg",
+    "img\shop-chest.svg",
+    "img\shop-chest-gold.svg",
+    "img\shop-chest-crystal.svg",
+    "img\shop-chest-ruby.svg",
+    "img\shop-chest-silver.svg",
+    "img\shop-chest-emerald.svg"
 )
 
 $vkFiles = @(
@@ -43,7 +49,13 @@ $vkFiles = @(
     "js\stats-config.js",
     "img\favicon.png",
     "img\apple-touch-icon.png",
-    "img\halloween-banner.jpg"
+    "img\halloween-banner.jpg",
+    "img\shop-chest.svg",
+    "img\shop-chest-gold.svg",
+    "img\shop-chest-crystal.svg",
+    "img\shop-chest-ruby.svg",
+    "img\shop-chest-silver.svg",
+    "img\shop-chest-emerald.svg"
 )
 
 $checkFiles = @($yandexFiles + $vkFiles | Select-Object -Unique)

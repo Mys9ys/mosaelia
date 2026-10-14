@@ -6,7 +6,8 @@
     "pack": "powershell -File tools/pack.ps1",
     "shots": "node tools/screenshots.mjs",
     "stats": "D:\\OSPanel\\modules\\PHP-8.2\\php.exe -S 127.0.0.1:8791 -t stats stats/router.php",
-    "preview": "D:\\OSPanel\\modules\\PHP-8.2\\php.exe -S 127.0.0.1:8788 -t ."
+    "preview": "D:\\OSPanel\\modules\\PHP-8.2\\php.exe -S 127.0.0.1:8788 -t .",
+    "seed-demo": "node tools/seed-demo-stats.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1"
