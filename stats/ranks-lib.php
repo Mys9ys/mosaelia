@@ -203,7 +203,9 @@ function mosaelia_rank_rows($level, $limit = 10) {
     $bucket = mosaelia_level_bucket($ranks, $level);
     $sorted = mosaelia_level_sorted_rows($bucket["best"]);
     $out = [];
+    $place = 0;
     foreach (array_slice($sorted, 0, $limit) as $row) {
+        $place++;
         $name = mosaelia_sanitize_name($row["name"] ?? "");
         if ($name === "") {
             $tail = substr((string) ($row["id"] ?? "guest"), -4);
@@ -213,7 +215,8 @@ function mosaelia_rank_rows($level, $limit = 10) {
             "id" => (string) ($row["id"] ?? ""),
             "name" => $name,
             "moves" => (int) ($row["moves"] ?? 0),
-            "clean" => !empty($row["clean"]) ? 1 : 0
+            "clean" => !empty($row["clean"]) ? 1 : 0,
+            "place" => $place
         ];
     }
     return $out;

@@ -1622,13 +1622,14 @@ async function finishLevel() {
     return { moves, par, stars, record, prev, clean, bonus, payout, firstDay, rankPrize, replay };
 }
 
-function paintRankList(rows, mine) {
+function paintRankList(rows, mine, meFromServer) {
     const list = ui.winRankList;
     if (!list) return;
     list.replaceChildren();
     const me = guestId();
     const myName = platform.playerName?.() || "Ты";
-    let board = Array.isArray(rows) ? rows.slice() : [];
+    const myPlace = Number(meFromServer?.place) || 0;
+    let board = Array.isArray(rows) ? rows.map((row) => ({ ...row })) : [];
     if (mine && Number(mine.moves) > 0) {
         const found = board.findIndex((row) => row.id === me);
         if (found >= 0) {
@@ -1640,14 +1641,21 @@ function paintRankList(rows, mine) {
                     clean: mine.clean ? 1 : board[found].clean
                 };
             }
-        } else {
+            if (myPlace > 0) board[found].place = myPlace;
+        } else if (myPlace > 0) {
             board.push({
                 id: me,
                 name: myName,
                 moves: mine.moves,
-                clean: mine.clean ? 1 : 0
+                clean: mine.clean ? 1 : 0,
+                place: myPlace
             });
         }
+    }
+    const hasPlaces = board.some((row) => Number(row.place) > 0);
+    if (hasPlaces) {
+        board.sort((a, b) => Number(a.place) - Number(b.place));
+    } else {
         board.sort((a, b) => Number(a.moves) - Number(b.moves));
     }
     if (!board.length) {
@@ -1661,7 +1669,8 @@ function paintRankList(rows, mine) {
         const li = document.createElement("li");
         if (row.id === me) li.classList.add("me");
         const who = row.id === me ? "Ты" : row.name;
-        li.innerHTML = `<span class="rank-n">${i + 1}</span><span>${who}${row.clean ? " · лист" : ""}</span><span>${formatMoves(row.moves)}</span>`;
+        const rankN = Number(row.place) > 0 ? row.place : i + 1;
+        li.innerHTML = `<span class="rank-n">${rankN}</span><span>${who}${row.clean ? " · лист" : ""}</span><span>${formatMoves(row.moves)}</span>`;
         list.appendChild(li);
     });
 }
@@ -1678,7 +1687,7 @@ async function loadWinRanks(mine) {
         ui.winRankList.appendChild(loading);
     }
     const pack = id ? await fetchRanks(id) : { rows: [], total: 0, me: null };
-    paintRankList(pack.rows, fallback);
+    paintRankList(pack.rows, fallback, pack.me);
     setRankFoot(pictureRankFoot(pack, fallback));
 }
 
