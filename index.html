@@ -421,6 +421,8 @@
             var retry = document.getElementById("boot-retry");
             var bar = screen && screen.querySelector(".boot-bar");
             var done = false;
+            var slowTimer = 0;
+            var readyWatch = 0;
             function prog(p, text) {
                 var n = Math.max(0, Math.min(100, Math.floor(Number(p) || 0)));
                 if (fill) fill.style.width = n + "%";
@@ -430,6 +432,8 @@
             function hide() {
                 if (done || !screen) return;
                 done = true;
+                if (slowTimer) clearTimeout(slowTimer);
+                if (readyWatch) clearInterval(readyWatch);
                 screen.classList.add("boot-screen--hide");
                 screen.setAttribute("aria-busy", "false");
                 setTimeout(function () {
@@ -437,6 +441,7 @@
                 }, 420);
             }
             function fail(text) {
+                if (done || window.__mosGameReady) return;
                 prog(100);
                 if (status) status.textContent = text || "Не удалось загрузить";
                 if (retry) retry.hidden = false;
@@ -447,13 +452,28 @@
                     location.reload();
                 });
             }
-            window.addEventListener("error", function () {
-                if (!done && !window.__mosGameReady) fail("Ошибка загрузки. Нажмите «Обновить».");
-            });
-            window.addEventListener("unhandledrejection", function () {
-                if (!done && !window.__mosGameReady) fail("Ошибка запуска. Нажмите «Обновить».");
-            });
+            window.addEventListener("error", function (e) {
+                if (done || window.__mosGameReady) return;
+                var el = e.target;
+                if (!el || el.tagName !== "SCRIPT" || !el.src) return;
+                if (el.src.indexOf("game.js") === -1 && el.src.indexOf("vk-bridge") === -1) return;
+                fail("Не загрузился файл игры. Нажмите «Обновить».");
+            }, true);
+            readyWatch = setInterval(function () {
+                if (window.__mosGameReady) {
+                    hide();
+                }
+            }, 250);
+            function armSlowFail() {
+                if (slowTimer) return;
+                slowTimer = setTimeout(function () {
+                    if (!done && !window.__mosGameReady) {
+                        fail("Долго грузится. Нажмите «Обновить».");
+                    }
+                }, 55000);
+            }
             prog(10, "Старт…");
+            armSlowFail();
             var q = location.search || "";
             var vk = /[?&]vk_/.test(q);
             if (!vk) {
@@ -480,13 +500,8 @@
                 prog(62, "Загрузка игры…");
             };
             document.head.appendChild(bridge);
-            setTimeout(function () {
-                if (!done && !window.__mosGameReady) {
-                    fail("Долго грузится. Нажмите «Обновить».");
-                }
-            }, 22000);
         })();
     </script>
-    <script type="module" src="js/game.js?v=81"></script>
+    <script type="module" src="js/game.js?v=82"></script>
 </body>
 </html>
