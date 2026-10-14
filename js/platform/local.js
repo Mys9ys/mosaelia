@@ -24,15 +24,38 @@ export function writeLocal(data) {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
 }
 
+function scriptMatchesSrc(el, src) {
+    if (!el.src) return false;
+    if (el.src === src) return true;
+    try {
+        const a = new URL(el.src, location.href);
+        const b = new URL(src, location.href);
+        return a.pathname === b.pathname;
+    } catch {
+        return el.src.includes(src.split("/").pop() || "");
+    }
+}
+
 export function loadScript(src, ms = 2500) {
-    if ([...document.scripts].some((s) => s.src === src)) {
-        return Promise.resolve();
+    const existing = [...document.scripts].find((s) => scriptMatchesSrc(s, src));
+    if (existing) {
+        if (window.vkBridge || window.bridge || existing.dataset.mosLoaded === "1") {
+            return Promise.resolve();
+        }
+        const wait = new Promise((resolve, reject) => {
+            existing.addEventListener("load", () => resolve(), { once: true });
+            existing.addEventListener("error", () => reject(new Error(`Не удалось загрузить ${src}`)), { once: true });
+        });
+        return withTimeout(wait, ms, `script ${src}`);
     }
     const loading = new Promise((resolve, reject) => {
         const el = document.createElement("script");
         el.src = src;
         el.async = true;
-        el.onload = () => resolve();
+        el.onload = () => {
+            el.dataset.mosLoaded = "1";
+            resolve();
+        };
         el.onerror = () => reject(new Error(`Не удалось загрузить ${src}`));
         document.head.appendChild(el);
     });

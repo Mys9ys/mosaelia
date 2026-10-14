@@ -179,7 +179,12 @@ function Finish-VkPack([string]$dest) {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $indexPath = Join-Path $dest "index.html"
     $html = [System.IO.File]::ReadAllText($indexPath)
-    $vkLoader = '    <script src="./js/vendor/vk-bridge.min.js"></script>'
+    $vkLoader = @"
+    <script src="./js/vendor/vk-bridge.min.js"></script>
+    <script>
+        try { (window.vkBridge || window.bridge).send("VKWebAppInit"); } catch (e) {}
+    </script>
+"@
     $loaderPattern = '(?s)\s*<script>\s*\(function\s*\(\)\s*\{.*?\}\)\(\);\s*</script>'
     if ($html -match $loaderPattern) {
         $html = [regex]::Replace($html, $loaderPattern, "`n$vkLoader", 1)

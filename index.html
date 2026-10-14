@@ -12,6 +12,14 @@
             var vk = /[?&]vk_(app_id|user_id)=/.test(q) || q.indexOf("sign=") !== -1;
             var s = document.createElement("script");
             s.src = vk ? "js/vendor/vk-bridge.min.js" : "/sdk.js";
+            if (vk) {
+                s.onload = function () {
+                    try {
+                        var b = window.vkBridge || window.bridge;
+                        if (b) b.send("VKWebAppInit");
+                    } catch (e) { /* game init retries */ }
+                };
+            }
             document.head.appendChild(s);
         })();
     </script>
@@ -403,6 +411,28 @@
         </div>
     </div>
     <div class="fx" id="fx"></div>
-    <script type="module" src="js/game.js?v=77"></script>
+    <script type="module">
+        const qs = location.search || "";
+        const isVk = /[?&]vk_(app_id|user_id)=/.test(qs) || qs.indexOf("sign=") !== -1;
+
+        function waitVkBridge() {
+            return new Promise((resolve) => {
+                if (window.vkBridge || window.bridge) {
+                    resolve();
+                    return;
+                }
+                const tag = [...document.scripts].find((el) => /vk-bridge/.test(el.src));
+                if (tag) {
+                    tag.addEventListener("load", () => resolve(), { once: true });
+                    tag.addEventListener("error", () => resolve(), { once: true });
+                    return;
+                }
+                setTimeout(resolve, 8000);
+            });
+        }
+
+        if (isVk) await waitVkBridge();
+        await import("./js/game.js?v=78");
+    </script>
 </body>
 </html>

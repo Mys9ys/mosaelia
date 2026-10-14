@@ -94,9 +94,15 @@ export function createVk() {
         async load() {
             let remote = null;
             try {
-                const res = await bridge?.send("VKWebAppStorageGet", { keys: [STORAGE_KEY] });
-                const row = res?.keys?.find((item) => item.key === STORAGE_KEY);
-                if (row?.value) remote = JSON.parse(row.value);
+                if (bridge) {
+                    const res = await withTimeout(
+                        bridge.send("VKWebAppStorageGet", { keys: [STORAGE_KEY] }),
+                        5000,
+                        "VKWebAppStorageGet"
+                    );
+                    const row = res?.keys?.find((item) => item.key === STORAGE_KEY);
+                    if (row?.value) remote = JSON.parse(row.value);
+                }
             } catch {
                 remote = null;
             }
